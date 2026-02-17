@@ -35,4 +35,4 @@ nano .env
 ```
 
 ## Credits
-Built with ❤️ by SDI Team
+Built with OSJDNGOHE
