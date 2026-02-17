@@ -1,0 +1,263 @@
+/* =============================================
+   RESPONSIVE CSS - SDI Monitoring System
+   Supports: Mobile (<768px), Tablet (768-1024px), Desktop (>1024px)
+   ============================================= */
+
+/* =================== TABLET =================== */
+@media (max-width: 1024px) {
+    /* Navigation - wrap tabs */
+    .tab-nav {
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    
+    .tab-btn {
+        font-size: 12px !important;
+        padding: 8px 12px !important;
+    }
+
+    /* Header */
+    .header {
+        padding: 12px 15px !important;
+    }
+
+    /* Stats grid - 2 columns */
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    /* Performance gauges - 3 columns still ok */
+    #performanceSection > div:first-of-type {
+        grid-template-columns: repeat(3, 1fr) !important;
+    }
+
+    /* Charts - stack vertically */
+    #performanceSection > div:nth-of-type(2) {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Device cards */
+    .device-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    /* Content cards */
+    #contentCardsGrid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+/* =================== MOBILE =================== */
+@media (max-width: 768px) {
+    /* Body padding */
+    body {
+        padding: 8px !important;
+    }
+
+    /* Header - stack logo & buttons */
+    .header {
+        flex-direction: column !important;
+        gap: 10px !important;
+        padding: 12px !important;
+        text-align: center;
+    }
+
+    .header > div:last-child {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    /* Title smaller */
+    .header h1, .header .title {
+        font-size: 18px !important;
+    }
+
+    /* Navigation - scrollable horizontal */
+    .tab-nav {
+        overflow-x: auto !important;
+        flex-wrap: nowrap !important;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 4px;
+        gap: 4px;
+        scrollbar-width: none;
+    }
+
+    .tab-nav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .tab-btn {
+        font-size: 11px !important;
+        padding: 7px 10px !important;
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Main container */
+    .container, .main-content {
+        padding: 10px !important;
+    }
+
+    /* Stats grid - 2 columns on mobile */
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+    }
+
+    .stat-card {
+        padding: 12px !important;
+    }
+
+    .stat-card h3 {
+        font-size: 11px !important;
+    }
+
+    .stat-card .value {
+        font-size: 22px !important;
+    }
+
+    /* Performance section */
+    #performanceSection h2 {
+        font-size: 16px !important;
+    }
+
+    /* Gauges - 1 column on mobile */
+    #performanceSection > div:first-of-type {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+
+    /* Charts - full width */
+    #performanceSection > div:nth-of-type(2) {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+
+    /* Device cards - 1 column */
+    .device-grid {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+
+    /* Content cards - 1 column */
+    #contentCardsGrid {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+
+    /* Topology - full width */
+    #topologyContainer, #topology-container {
+        height: 400px !important;
+    }
+
+    /* Anomaly cards */
+    .anomaly-card {
+        padding: 12px !important;
+    }
+
+    /* Interface table - scrollable */
+    .interface-table-wrapper, table {
+        overflow-x: auto !important;
+        display: block !important;
+        width: 100% !important;
+    }
+
+    /* AI Assistant */
+    #aiTab {
+        height: calc(100vh - 160px) !important;
+    }
+
+    /* Modal - full screen on mobile */
+    .modal-content, [class*="modal"] > div {
+        width: 95vw !important;
+        max-width: 95vw !important;
+        margin: 10px auto !important;
+        max-height: 90vh !important;
+        overflow-y: auto !important;
+    }
+
+    /* Notification bell panel */
+    #criticalPanel {
+        right: 5px !important;
+        left: 5px !important;
+        width: auto !important;
+        max-width: none !important;
+    }
+
+    /* Refresh status indicator */
+    #refreshStatus {
+        bottom: 5px !important;
+        right: 5px !important;
+        font-size: 10px !important;
+        padding: 5px 10px !important;
+    }
+
+    /* Charts height reduce on mobile */
+    canvas {
+        max-height: 200px !important;
+    }
+
+    /* IP Conflicts table */
+    .ip-table-wrapper {
+        overflow-x: auto !important;
+    }
+
+    /* Manage tab forms */
+    .manage-form, .form-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Content monitor stats */
+    .content-stats {
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+
+    /* Monitor stats */
+    .monitor-stats {
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+
+    /* H2 headings */
+    h2 {
+        font-size: 16px !important;
+    }
+
+    /* Buttons - larger touch targets */
+    button {
+        min-height: 36px !important;
+    }
+}
+
+/* =================== SMALL MOBILE =================== */
+@media (max-width: 480px) {
+    /* Stats grid - 1 column on very small */
+    .stats-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Font sizes */
+    body {
+        font-size: 13px !important;
+    }
+
+    .tab-btn {
+        font-size: 10px !important;
+        padding: 6px 8px !important;
+    }
+}
+
+/* =================== GAUGE CENTER FIX =================== */
+#cpuGauge, #memGauge, #diskGauge {
+    display: block !important;
+    margin: 0 auto !important;
+}
+
+/* Gauge container center */
+#performanceSection .stat-card {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+}
