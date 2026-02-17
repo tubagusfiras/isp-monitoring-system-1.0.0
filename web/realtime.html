@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realtime Monitor - SDI</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #fff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(255,255,255,0.1);
+        }
+        .header h1 {
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-active { background: rgba(16,185,129,0.2); color: #10b981; }
+        .status-paused { background: rgba(239,68,68,0.2); color: #ef4444; }
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .control-group label {
+            font-size: 12px;
+            color: rgba(255,255,255,0.6);
+        }
+        select, button {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(30,41,59,0.95);
+            color: #fff;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        button:hover { background: rgba(30,41,59,1); }
+        .countdown {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .progress-bar {
+            width: 120px;
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #3b82f6);
+            transition: width 0.3s;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid;
+        }
+        .stat-label {
+            font-size: 11px;
+            color: rgba(255,255,255,0.5);
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .card-in { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.3); }
+        .card-in .stat-value { color: #10b981; }
+        .card-out { background: rgba(59,130,246,0.1); border-color: rgba(59,130,246,0.3); }
+        .card-out .stat-value { color: #3b82f6; }
+        .card-peak { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.3); }
+        .card-peak .stat-value { color: #f59e0b; }
+        .chart-container {
+            background: rgba(0,0,0,0.3);
+            padding: 20px;
+            border-radius: 8px;
+            height: calc(100vh - 400px);
+            min-height: 400px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>
+                <span>⚡</span>
+                <span id="interfaceName">Loading...</span>
+                <span class="status-badge status-active" id="statusBadge">● ACTIVE</span>
+            </h1>
+            <p style="color: rgba(255,255,255,0.6); font-size: 13px; margin-top: 5px;">
+                <span id="deviceName">Device</span> • <span id="description">Description</span>
+            </p>
+        </div>
+        <button onclick="togglePolling()" id="pauseBtn" style="background: rgba(239,68,68,0.8);">⏸ Pause</button>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>Poll Interval:</label>
+            <select id="intervalSelect" onchange="changeInterval()">
+                <option value="5">5 seconds</option>
+                <option value="10" selected>10 seconds</option>
+                <option value="15">15 seconds</option>
+                <option value="30">30 seconds</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label>Time Window:</label>
+            <select id="windowSelect" onchange="changeWindow()">
+                <option value="60">1 minute</option>
+                <option value="300" selected>5 minutes</option>
+                <option value="600">10 minutes</option>
+                <option value="1800">30 minutes</option>
+                <option value="3600">1 hour</option>
+            </select>
+        </div>
+        
+        <div class="countdown">
+            <span id="countdownText" style="font-size: 13px;">Next poll in <strong style="color: #10b981;">10</strong>s</span>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressBar"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card card-in">
+            <div class="stat-label">Current IN</div>
+            <div class="stat-value" id="currentIn">-- Mbps</div>
+        </div>
+        <div class="stat-card card-out">
+            <div class="stat-label">Current OUT</div>
+            <div class="stat-value" id="currentOut">-- Mbps</div>
+        </div>
+        <div class="stat-card card-peak">
+            <div class="stat-label">Peak IN</div>
+            <div class="stat-value" id="peakIn">-- Mbps</div>
+        </div>
+        <div class="stat-card card-peak">
+            <div class="stat-label">Peak OUT</div>
+            <div class="stat-value" id="peakOut">-- Mbps</div>
+        </div>
+        <div class="stat-card card-in">
+            <div class="stat-label">Avg IN</div>
+            <div class="stat-value" id="avgIn">-- Mbps</div>
+        </div>
+        <div class="stat-card card-out">
+            <div class="stat-label">Avg OUT</div>
+            <div class="stat-value" id="avgOut">-- Mbps</div>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="realtimeChart"></canvas>
+    </div>
+
+    <script>
+        const API_URL = '/api';
+        const params = new URLSearchParams(window.location.search);
+        const deviceId = params.get('device');
+        const interfaceName = params.get('interface');
+        const deviceName = params.get('device_name') || 'Unknown Device';
+        const description = params.get('description') || 'No description';
+
+        let polling = true;
+        let pollTimer = null;
+        let countdownTimer = null;
+        let interval = 10;
+        let window_size = 300;
+        let chartData = { labels: [], inData: [], outData: [] };
+        let peaks = { in: 0, out: 0 };
+        let chart = null;
+
+        // Initialize
+        document.getElementById('interfaceName').textContent = interfaceName;
+        document.getElementById('deviceName').textContent = deviceName;
+        document.getElementById('description').textContent = description;
+        document.title = `Realtime: ${interfaceName} - ${deviceName}`;
+
+        initChart();
+        startPolling();
+
+        function initChart() {
+            const ctx = document.getElementById('realtimeChart');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'IN (Mbps)',
+                            data: [],
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16,185,129,0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            pointRadius: 2,
+                            fill: true
+                        },
+                        {
+                            label: 'OUT (Mbps)',
+                            data: [],
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59,130,246,0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            pointRadius: 2,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 300 },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#fff', font: { size: 14 } }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0,0,0,0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#fff', maxRotation: 0 },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        y: {
+                            ticks: { color: '#fff' },
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            title: {
+                                display: true,
+                                text: 'Bandwidth (Mbps)',
+                                color: '#fff'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function startPolling() {
+            poll();
+            startCountdown();
+        }
+
+        async function poll() {
+            if (!polling) return;
+
+            try {
+                const res = await fetch(`${API_URL}/interfaces/realtime-poll?device_id=${deviceId}&interface_name=${encodeURIComponent(interfaceName)}`, { credentials: 'include' });
+                const data = await res.json();
+
+                if (data.success && data.data) {
+                    const { in_mbps, out_mbps } = data.data;
+                    
+                    // Update current
+                    document.getElementById('currentIn').textContent = in_mbps.toFixed(2) + ' Mbps';
+                    document.getElementById('currentOut').textContent = out_mbps.toFixed(2) + ' Mbps';
+                    
+                    // Update peaks
+                    if (in_mbps > peaks.in) {
+                        peaks.in = in_mbps;
+                        document.getElementById('peakIn').textContent = in_mbps.toFixed(2) + ' Mbps';
+                    }
+                    if (out_mbps > peaks.out) {
+                        peaks.out = out_mbps;
+                        document.getElementById('peakOut').textContent = out_mbps.toFixed(2) + ' Mbps';
+                    }
+                    
+                    // Add to chart
+                    const time = new Date().toLocaleTimeString();
+                    chartData.labels.push(time);
+                    chartData.inData.push(in_mbps);
+                    chartData.outData.push(out_mbps);
+                    
+                    // Keep only data within window
+                    const maxPoints = Math.floor(window_size / interval);
+                    if (chartData.labels.length > maxPoints) {
+                        chartData.labels.shift();
+                        chartData.inData.shift();
+                        chartData.outData.shift();
+                    }
+                    
+                    // Calculate averages
+                    const avgIn = chartData.inData.reduce((a,b) => a+b, 0) / chartData.inData.length;
+                    const avgOut = chartData.outData.reduce((a,b) => a+b, 0) / chartData.outData.length;
+                    document.getElementById('avgIn').textContent = avgIn.toFixed(2) + ' Mbps';
+                    document.getElementById('avgOut').textContent = avgOut.toFixed(2) + ' Mbps';
+                    
+                    // Update chart
+                    chart.data.labels = chartData.labels;
+                    chart.data.datasets[0].data = chartData.inData;
+                    chart.data.datasets[1].data = chartData.outData;
+                    chart.update('none');
+                }
+            } catch (e) {
+                console.error('Poll error:', e);
+            }
+
+            if (polling) {
+                pollTimer = setTimeout(poll, interval * 1000);
+                startCountdown();
+            }
+        }
+
+        function startCountdown() {
+            if (countdownTimer) clearInterval(countdownTimer);
+            
+            let remaining = interval;
+            countdownTimer = setInterval(() => {
+                remaining--;
+                if (remaining < 0) {
+                    clearInterval(countdownTimer);
+                    return;
+                }
+                
+                const pct = (remaining / interval) * 100;
+                document.getElementById('countdownText').innerHTML = `Next poll in <strong style="color: #10b981;">${remaining}</strong>s`;
+                document.getElementById('progressBar').style.width = pct + '%';
+            }, 1000);
+        }
+
+        function togglePolling() {
+            polling = !polling;
+            const btn = document.getElementById('pauseBtn');
+            const badge = document.getElementById('statusBadge');
+            
+            if (polling) {
+                btn.innerHTML = '⏸ Pause';
+                btn.style.background = 'rgba(239,68,68,0.8)';
+                badge.textContent = '● ACTIVE';
+                badge.className = 'status-badge status-active';
+                startPolling();
+            } else {
+                btn.innerHTML = '▶ Resume';
+                btn.style.background = 'rgba(16,185,129,0.8)';
+                badge.textContent = '⏸ PAUSED';
+                badge.className = 'status-badge status-paused';
+                if (pollTimer) clearTimeout(pollTimer);
+                if (countdownTimer) clearInterval(countdownTimer);
+            }
+        }
+
+        function changeInterval() {
+            interval = parseInt(document.getElementById('intervalSelect').value);
+            if (polling) {
+                if (pollTimer) clearTimeout(pollTimer);
+                if (countdownTimer) clearInterval(countdownTimer);
+                poll();
+            }
+        }
+
+        function changeWindow() {
+            window_size = parseInt(document.getElementById('windowSelect').value);
+            const maxPoints = Math.floor(window_size / interval);
+            if (chartData.labels.length > maxPoints) {
+                const excess = chartData.labels.length - maxPoints;
+                chartData.labels.splice(0, excess);
+                chartData.inData.splice(0, excess);
+                chartData.outData.splice(0, excess);
+                chart.data.labels = chartData.labels;
+                chart.data.datasets[0].data = chartData.inData;
+                chart.data.datasets[1].data = chartData.outData;
+                chart.update();
+            }
+        }
+    </script>
+</body>
+</html>

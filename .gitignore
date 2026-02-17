@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+*.egg-info/
+
+# Sensitive files
+.env
+*.log
+
+# Backups
+*.backup*
+*.broken*
+*.old*
+*.proper_*
+*.final_*
+
+# Database
+*.sql
+*.dump
+
+# OS
+.DS_Store
+Thumbs.db

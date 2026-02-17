@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realtime Content Ping Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #fff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .title { font-size: 24px; font-weight: 600; }
+        .subtitle { font-size: 14px; color: rgba(255,255,255,0.6); margin-top: 4px; }
+        .close-btn {
+            padding: 10px 20px;
+            background: rgba(239,68,68,0.8);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .close-btn:hover { background: rgba(239,68,68,1); }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.05);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .stat-label {
+            font-size: 13px; font-weight: 500;
+            color: rgba(255,255,255,0.6);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .stat-value.good { color: #10b981; }
+        .stat-value.warning { color: #f59e0b; }
+        .stat-value.critical { color: #ef4444; }
+        
+        .chart-container {
+            background: rgba(255,255,255,0.05);
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .control-group label {
+            font-size: 13px;
+            color: rgba(255,255,255,0.7);
+        }
+        select, button {
+            color: white !important;
+            padding: 8px 15px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        select:hover, button:hover { background: rgba(255,255,255,0.15); }
+        
+        .countdown {
+            font-size: 13px; font-weight: 500;
+            color: rgba(255,255,255,0.5);
+            margin-top: 15px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #10b981);
+            transition: width 0.1s linear;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+        .status-indicator.active { background: #10b981; }
+        .status-indicator.paused { background: #f59e0b; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        select option {
+        background: #1e293b;
+        color: white;
+    }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <div class="title">
+                    <span class="status-indicator active" id="statusIndicator"></span>
+                    Realtime Content Ping Monitor
+                </div>
+                <div class="subtitle" id="targetInfo">Loading...</div>
+            </div>
+            <button class="close-btn" onclick="window.close()">✕ Close</button>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Current RTT</div>
+                <div class="stat-value" id="currentRtt">-- ms</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Average RTT</div>
+                <div class="stat-value" id="avgRtt">-- ms</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Peak RTT</div>
+                <div class="stat-value" id="peakRtt">-- ms</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Packet Loss</div>
+                <div class="stat-value" id="packetLoss">--%</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <div class="controls">
+                <div class="control-group">
+                    <label>Poll Interval:</label>
+                    <select id="intervalSelect" onchange="changeInterval()">
+                        <option value="5000">5 seconds</option>
+                        <option value="10000" selected>10 seconds</option>
+                        <option value="15000">15 seconds</option>
+                        <option value="30000">30 seconds</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Time Window:</label>
+                    <select id="windowSelect" onchange="changeWindow()">
+                        <option value="60000">1 minute</option>
+                        <option value="300000" selected>5 minutes</option>
+                        <option value="600000">10 minutes</option>
+                        <option value="1800000">30 minutes</option>
+                        <option value="3600000">1 hour</option>
+                    </select>
+                </div>
+                <button onclick="togglePause()" id="pauseBtn">⏸ Pause</button>
+            </div>
+            
+            <div style="height: 300px; position: relative;">
+                <canvas id="rttChart"></canvas>
+            </div></canvas>
+            
+            <div class="countdown" style="display: block;">
+                <div id="countdownText">Next poll in 10s</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressBar"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const targetId = params.get('target_id');
+        const targetName = params.get('name') || 'Unknown Target';
+        const targetAddress = params.get('target') || '';
+
+        document.getElementById('targetInfo').textContent = `${targetName} (${targetAddress})`;
+
+        let pollInterval = 10000;
+        let timeWindow = 300000;
+        let isPaused = false;
+        let pollTimer = null;
+        let countdownTimer = null;
+        let dataPoints = [];
+
+        const ctx = document.getElementById('rttChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'RTT (ms)',
+                    data: [],
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    x: { 
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { 
+                            color: 'rgba(255,255,255,0.7)',
+                            maxRotation: 0,
+                            autoSkip: true,
+                            autoSkipPadding: 20,
+                            callback: function(value, index) {
+                                // Show every Nth label based on data density
+                                const totalLabels = this.chart.data.labels.length;
+                                const skipFactor = Math.max(1, Math.floor(totalLabels / 10));
+                                return index % skipFactor === 0 ? this.chart.data.labels[index] : '';
+                            }
+                        }
+                    },
+                    y: { 
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: 'rgba(255,255,255,0.7)' }
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: 'white' } }
+                }
+            }
+        });
+
+        async function pollTarget() {
+        console.log('Polling target:', targetId);
+            try {
+                const res = await fetch(`/api/content-targets/${targetId}/realtime-ping`, {
+                    credentials: 'include'
+                });
+                const response = await res.json();
+                console.log('Poll response:', response);
+
+                if (!response.success) {
+                    console.error('Poll failed:', response.error);
+                    return;
+                }
+                
+                const data = response.data; // Unwrap nested data
+
+                if (!data) {
+                    console.error('No data returned');
+                    return;
+                }
+
+                const timestamp = new Date();
+                dataPoints.push({
+                    timestamp,
+                    rtt: data.rtt_avg,
+                    loss: data.packet_loss
+                });
+
+                // Keep only data within time window
+                const cutoff = new Date(Date.now() - timeWindow);
+                dataPoints = dataPoints.filter(d => d.timestamp > cutoff);
+
+                updateChart();
+                updateStats(data);
+                
+                // Restart countdown after poll
+                startCountdown();
+
+            } catch (e) {
+                console.error('Poll error:', e);
+            }
+        }
+
+        function updateChart() {
+        console.log('Updating chart with', dataPoints.length, 'points');
+        if (dataPoints.length === 0) {
+            console.warn('No data points to chart!');
+            return;
+        }
+        console.log('updateChart called, dataPoints:', dataPoints.length);
+            // Format time labels
+            const formatTime = (ts) => {
+                const d = new Date(ts);
+                return d.getHours().toString().padStart(2,"0") + ":" + d.getMinutes().toString().padStart(2,"0");
+            };
+            chart.data.labels = dataPoints.map(d => formatTime(d.timestamp));
+        chart.data.datasets[0].data = dataPoints.map(d => d.rtt || 0);
+        
+        console.log('Chart labels:', chart.data.labels.length);
+        console.log('Chart data:', chart.data.datasets[0].data);
+            chart.data.datasets[0].data = dataPoints.map(d => d.rtt || 0);
+            chart.update('active');
+        }
+
+        function updateStats(data) {
+            const currentEl = document.getElementById('currentRtt');
+            const avgEl = document.getElementById('avgRtt');
+            const peakEl = document.getElementById('peakRtt');
+            const lossEl = document.getElementById('packetLoss');
+
+            currentEl.textContent = data.rtt_avg ? data.rtt_avg.toFixed(2) + ' ms' : 'N/A';
+            currentEl.className = 'stat-value ' + (data.rtt_avg < 50 ? 'good' : data.rtt_avg < 100 ? 'warning' : 'critical');
+
+            const validRtts = dataPoints.filter(d => d.rtt).map(d => d.rtt);
+            if (validRtts.length > 0) {
+                const avg = validRtts.reduce((a,b) => a+b, 0) / validRtts.length;
+                const peak = Math.max(...validRtts);
+                avgEl.textContent = avg.toFixed(2) + ' ms';
+                peakEl.textContent = peak.toFixed(2) + ' ms';
+            }
+
+            lossEl.textContent = (data.packet_loss !== null && data.packet_loss !== undefined) ? data.packet_loss + '%' : 'N/A';
+            lossEl.className = 'stat-value ' + (data.packet_loss === 0 ? 'good' : data.packet_loss < 10 ? 'warning' : 'critical');
+        }
+
+        function startPolling() {
+            if (pollTimer) clearInterval(pollTimer);
+            if (countdownTimer) clearInterval(countdownTimer);
+
+            pollTarget();
+            pollTimer = setInterval(pollTarget, pollInterval);
+            startCountdown();
+        }
+
+        function startCountdown() {
+        if (countdownTimer) clearInterval(countdownTimer);
+        console.log('Starting countdown, interval:', pollInterval);
+            let remaining = pollInterval / 1000;
+            const countdownEl = document.getElementById('countdownText');
+                if (countdownEl) {
+                    countdownEl.textContent = `Next poll in ${remaining}s`;
+                    countdownEl.style.display = 'block';
+                }
+            document.getElementById('progressBar').style.width = '0%';
+
+            countdownTimer = setInterval(() => {
+                remaining--;
+                if (remaining <= 0) {
+                    clearInterval(countdownTimer);
+                    return;
+                }
+                const countdownEl = document.getElementById('countdownText');
+                if (countdownEl) {
+                    countdownEl.textContent = `Next poll in ${remaining}s`;
+                    countdownEl.style.display = 'block';
+                }
+                const progress = ((pollInterval/1000 - remaining) / (pollInterval/1000)) * 100;
+                const progressEl = document.getElementById('progressBar');
+                if (progressEl) progressEl.style.width = progress + '%';
+            }, 1000);
+        }
+
+        function changeInterval() {
+            pollInterval = parseInt(document.getElementById('intervalSelect').value);
+            if (!isPaused) startPolling();
+        }
+
+        function changeWindow() {
+            timeWindow = parseInt(document.getElementById('windowSelect').value);
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            const btn = document.getElementById('pauseBtn');
+            const indicator = document.getElementById('statusIndicator');
+
+            if (isPaused) {
+                clearInterval(pollTimer);
+                clearInterval(countdownTimer);
+                btn.textContent = '▶ Resume';
+                indicator.className = 'status-indicator paused';
+            } else {
+                btn.textContent = '⏸ Pause';
+                indicator.className = 'status-indicator active';
+                startPolling();
+            }
+        }
+
+        // Start
+        if (!targetId) {
+            alert('Error: No target_id provided');
+        } else {
+            startPolling();
+        }
+    </script>
+</body>
+</html>
