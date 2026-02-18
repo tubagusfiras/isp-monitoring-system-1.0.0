@@ -175,6 +175,9 @@
         .btn-primary:hover { background: rgba(59, 130, 246, 1); }
         .btn-success { background: rgba(16, 185, 129, 0.8); color: #fff; }
         .btn-success:hover { background: rgba(16, 185, 129, 1); }
+        .monitor-filter-btn { opacity: 0.6; transition: opacity 0.2s, box-shadow 0.2s; }
+        .monitor-filter-btn:hover { opacity: 0.9; }
+        .active-filter { opacity: 1 !important; box-shadow: 0 0 0 2px rgba(255,255,255,0.3); }
         .btn-danger { background: rgba(239, 68, 68, 0.8); color: #fff; }
         .btn-danger:hover { background: rgba(239, 68, 68, 1); }
         .controls {
@@ -590,6 +593,37 @@
                 <div class="stat-card"><h3>Active Anomalies</h3><div class="value" style="color: #f59e0b;" id="anomalyCount">0</div></div>
             </div>
 
+        <!-- Collection Status Panel -->
+        <div id="collectionPanel" style="margin-bottom: 20px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 16px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                <div style="display:flex; align-items:center; gap:15px;">
+                    <div>
+                        <div style="font-size:13px; color:rgba(255,255,255,0.5); margin-bottom:3px;">Interface Collection</div>
+                        <div style="font-size:13px; color:rgba(255,255,255,0.8);" id="collectionLastTime">Loading...</div>
+                    </div>
+                    <div id="collectionStatusBadge" style="padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; background:rgba(16,185,129,0.2); color:#10b981; border:1px solid rgba(16,185,129,0.3);">IDLE</div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="text-align:right; font-size:12px; color:rgba(255,255,255,0.5);">
+                        <span id="collectionStats">-</span>
+                    </div>
+                    <button id="collectBtn" onclick="app.triggerCollection()" style="background:rgba(59,130,246,0.2); border:1px solid rgba(59,130,246,0.4); color:#3b82f6; padding:8px 16px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600;">🔄 Collect Now</button>
+                    <button id="cancelBtn" onclick="app.cancelCollection()" style="display:none; background:rgba(239,68,68,0.2); border:1px solid rgba(239,68,68,0.4); color:#ef4444; padding:8px 16px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600;">⏹ Cancel</button>
+                </div>
+            </div>
+            <!-- Progress Bar -->
+            <div id="collectionProgressWrapper" style="display:none; margin-top:12px;">
+                <div style="display:flex; justify-content:space-between; font-size:11px; color:rgba(255,255,255,0.5); margin-bottom:5px;">
+                    <span id="collectionProgressLabel">Collecting...</span>
+                    <span id="collectionProgressPct">0%</span>
+                </div>
+                <div style="background:rgba(255,255,255,0.1); border-radius:4px; height:6px; overflow:hidden;">
+                    <div id="collectionProgressBar" style="height:100%; width:0%; background:linear-gradient(90deg,#3b82f6,#10b981); border-radius:4px; transition:width 0.5s ease;"></div>
+                </div>
+                <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-top:4px;" id="collectionLastDevice"></div>
+            </div>
+        </div>
+
         <!-- Server Performance Monitor -->
         <div id="performanceSection" style="margin-top: 30px;">
             <h2 style="font-size: 20px; font-weight: 600; margin-bottom: 20px; color: white;">📊 Server Performance</h2>
@@ -662,15 +696,28 @@
 
             <!-- Category Filter + Search -->
             <div class="controls" style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                <button class="btn" style="background: rgba(239,68,68,0.8);" onclick="app.filterDeviceMonitoring('all')">All (<span id="monitorCountAll">0</span>)</button>
-                <button class="btn" style="background: rgba(239,68,68,0.8);" onclick="app.filterDeviceMonitoring('core')">Core (<span id="monitorCountCore">0</span>)</button>
-                <button class="btn" style="background: rgba(245,158,11,0.8);" onclick="app.filterDeviceMonitoring('distribution')">Dist (<span id="monitorCountDist">0</span>)</button>
-                <button class="btn" style="background: rgba(16,185,129,0.8);" onclick="app.filterDeviceMonitoring('access')">Access (<span id="monitorCountAccess">0</span>)</button>
+                <!-- Status Filter -->
+                <button class="btn monitor-filter-btn active-filter" id="filterAll" onclick="app.filterDeviceMonitoring('all')">All (<span id="monitorCountAll">0</span>)</button>
+                <button class="btn monitor-filter-btn" id="filterCore" style="background:rgba(139,92,246,0.3); border:1px solid rgba(139,92,246,0.5);" onclick="app.filterDeviceMonitoring('core')">🔵 Core (<span id="monitorCountCore">0</span>)</button>
+                <button class="btn monitor-filter-btn" id="filterDist" style="background:rgba(245,158,11,0.3); border:1px solid rgba(245,158,11,0.5);" onclick="app.filterDeviceMonitoring('distribution')">🟡 Dist (<span id="monitorCountDist">0</span>)</button>
+                <button class="btn monitor-filter-btn" id="filterAccess" style="background:rgba(16,185,129,0.3); border:1px solid rgba(16,185,129,0.5);" onclick="app.filterDeviceMonitoring('access')">🟢 Access (<span id="monitorCountAccess">0</span>)</button>
+
+                <!-- Device Type Filter -->
+                <select id="deviceTypeFilter" onchange="app.filterDeviceMonitoring()" style="background:#1e3a5f; border:1px solid rgba(255,255,255,0.2); color:white; padding:6px 10px; border-radius:6px; font-size:13px; cursor:pointer;">
+                    <option value="">All Types</option>
+                    <option value="exos">EXOS</option>
+                    <option value="juniper_mx">Juniper MX</option>
+                    <option value="juniper_qfx">Juniper QFX</option>
+                    <option value="mikrotik">Mikrotik</option>
+                    <option value="zte_olt">ZTE OLT</option>
+                    <option value="huawei">Huawei</option>
+                </select>
 
                 <input type="text" id="monitorSearchInput" class="monitor-search" placeholder="Search hostname or IP..." oninput="app.filterDeviceMonitoring()">
 
-                <div style="margin-left: auto;">
-                    <button class="btn btn-success" onclick="app.loadDeviceCards()">Refresh All</button>
+                <div style="margin-left: auto; display:flex; align-items:center; gap:8px;">
+                    <span id="autoRefreshCountdown" style="font-size:11px; color:rgba(255,255,255,0.4);">Auto-refresh in 60s</span>
+                    <button class="btn btn-success" id="refreshDeviceBtn" onclick="app.loadDeviceCards()">🔄 Refresh</button>
                 </div>
             </div>
 
@@ -1374,7 +1421,7 @@
                 try {
                     const [statsRes, latencyRes, anomalyRes] = await Promise.all([
                         fetch(`${API_URL}/stats`),
-                        fetch(`${API_URL}/latency/latest`),
+                        fetch(`${API_URL}/latency/latest`, {credentials:'include'}),
                         fetch(`${API_URL}/anomalies?limit=10`)
                     ]);
                     const stats = await statsRes.json();
@@ -1396,12 +1443,46 @@
             let allDeviceCards = [];
             let currentMonitorCategory = 'all';
             let monitorSort = { col: 'status', dir: 'asc' };
+            let deviceAutoRefreshTimer = null;
+
+            let deviceCountdownTimer = null;
+            let deviceCountdownSeconds = 60;
+
+            function startDeviceAutoRefresh() {
+                if (deviceAutoRefreshTimer) clearInterval(deviceAutoRefreshTimer);
+                if (deviceCountdownTimer) clearInterval(deviceCountdownTimer);
+                deviceCountdownSeconds = 60;
+                deviceAutoRefreshTimer = setInterval(() => {
+                    if (currentTab === 'devices') {
+                        deviceCountdownSeconds = 60;
+                        loadDeviceCards();
+                    }
+                }, 60000);
+                deviceCountdownTimer = setInterval(() => {
+                    if (currentTab === 'devices') {
+                        deviceCountdownSeconds--;
+                        const el = document.getElementById('autoRefreshCountdown');
+                        if (el) el.textContent = `Auto-refresh in ${deviceCountdownSeconds}s`;
+                    }
+                }, 1000);
+            }
+
+            function stopDeviceAutoRefresh() {
+                if (deviceAutoRefreshTimer) { clearInterval(deviceAutoRefreshTimer); deviceAutoRefreshTimer = null; }
+                if (deviceCountdownTimer) { clearInterval(deviceCountdownTimer); deviceCountdownTimer = null; }
+            }
+
+
             
             async function loadDeviceCards() {
+                const btn = document.getElementById('refreshDeviceBtn');
+                const tbody = document.getElementById('monitorTableBody');
+                if (btn) { btn.disabled = true; btn.textContent = '⏳ Loading...'; }
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;"><div style="color:rgba(255,255,255,0.5);">🔄 Loading devices...</div></td></tr>';
                 try {
                     const [statusRes, latencyRes] = await Promise.all([
-                        fetch(`${API_URL}/devices/status`),
-                        fetch(`${API_URL}/latency/latest`)
+                        fetch(`${API_URL}/devices/status`, {credentials:'include'}),
+                        fetch(`${API_URL}/latency/latest`, {credentials:'include'})
                     ]);
                     
                     const statusData = await statusRes.json();
@@ -1436,21 +1517,38 @@
                     
                     // Render table
                     renderMonitorTable(devices);
-
+                    renderMonitorTable(devices);
                 } catch (e) {
                     console.error('Device load error:', e);
-                    document.getElementById('monitorTableBody').innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;" class="error">Error loading devices</td></tr>';
+                    document.getElementById('monitorTableBody').innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;" class="error">❌ Error loading devices</td></tr>';
+                } finally {
+                    if (btn) { btn.disabled = false; btn.textContent = '🔄 Refresh'; }
                 }
+
+
             }
 
             
             
             function filterDeviceMonitoring(category) {
-                if (category) currentMonitorCategory = category;
+                if (category) {
+                    currentMonitorCategory = category;
+                    // Update active filter button
+                    document.querySelectorAll('.monitor-filter-btn').forEach(b => {
+                        b.classList.remove('active-filter');
+                        b.style.opacity = '0.6';
+                    });
+                    const activeBtn = document.getElementById('filter' + category.charAt(0).toUpperCase() + category.slice(1));
+                    if (activeBtn) { activeBtn.classList.add('active-filter'); activeBtn.style.opacity = '1'; }
+                }
                 const searchTerm = (document.getElementById('monitorSearchInput')?.value || '').toLowerCase();
+                const typeFilter = document.getElementById('deviceTypeFilter')?.value || '';
                 let filtered = currentMonitorCategory === 'all' ? allDevices : allDevices.filter(d => d.category === currentMonitorCategory);
                 if (searchTerm) {
                     filtered = filtered.filter(d => d.hostname.toLowerCase().includes(searchTerm) || d.ip_address.toLowerCase().includes(searchTerm));
+                }
+                if (typeFilter) {
+                    filtered = filtered.filter(d => (d.device_type || '') === typeFilter);
                 }
                 renderMonitorTable(filtered);
             }
@@ -2480,6 +2578,123 @@
                 }
             }
 
+            // === COLLECTION STATUS ===
+            let collectionPollTimer = null;
+
+            async function triggerCollection() {
+                const btn = document.getElementById('collectBtn');
+                btn.disabled = true;
+                btn.textContent = '⏳ Starting...';
+                try {
+                    const res = await fetch('/api/collection/trigger', { method: 'POST', credentials: 'include' });
+                    const data = await res.json();
+                    if (data.success) {
+                        showToast('Collection started!', 'success');
+                        startCollectionPolling();
+                    } else {
+                        showToast(data.error || 'Failed to start', 'error');
+                        btn.disabled = false;
+                        btn.textContent = '🔄 Collect Now';
+                    }
+                } catch(e) {
+                    showToast('Connection error', 'error');
+                    btn.disabled = false;
+                    btn.textContent = '🔄 Collect Now';
+                }
+            }
+
+            function startCollectionPolling() {
+                if (collectionPollTimer) clearInterval(collectionPollTimer);
+                pollCollectionStatus();
+                collectionPollTimer = setInterval(pollCollectionStatus, 3000);
+            }
+
+            async function cancelCollection() {
+                const cancelBtn = document.getElementById('cancelBtn');
+                cancelBtn.disabled = true;
+                cancelBtn.textContent = '⏳ Cancelling...';
+                try {
+                    const res = await fetch('/api/collection/cancel', { method: 'POST', credentials: 'include' });
+                    const data = await res.json();
+                    if (data.success) {
+                        showToast('Collection cancelled', 'warning');
+                    } else {
+                        showToast(data.error || 'Failed to cancel', 'error');
+                        cancelBtn.disabled = false;
+                        cancelBtn.textContent = '⏹ Cancel';
+                    }
+                } catch(e) {
+                    showToast('Connection error', 'error');
+                    cancelBtn.disabled = false;
+                    cancelBtn.textContent = '⏹ Cancel';
+                }
+            }
+
+            async function pollCollectionStatus() {
+                try {
+                    const res = await fetch('/api/collection/status', { credentials: 'include' });
+                    const data = await res.json();
+                    if (!data.success) return;
+                    const job = data.job;
+                    const progress = data.progress;
+                    const btn = document.getElementById('collectBtn');
+                    const cancelBtn = document.getElementById('cancelBtn');
+                    const badge = document.getElementById('collectionStatusBadge');
+                    const progressWrapper = document.getElementById('collectionProgressWrapper');
+                    const progressBar = document.getElementById('collectionProgressBar');
+                    const progressPct = document.getElementById('collectionProgressPct');
+                    const progressLabel = document.getElementById('collectionProgressLabel');
+                    const lastDevice = document.getElementById('collectionLastDevice');
+                    const lastTime = document.getElementById('collectionLastTime');
+                    const stats = document.getElementById('collectionStats');
+                    if (!job) { lastTime.textContent = 'Never collected'; return; }
+
+                    if (job.status === 'running') {
+                        badge.textContent = 'COLLECTING';
+                        badge.style.cssText = 'padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; background:rgba(59,130,246,0.2); color:#3b82f6; border:1px solid rgba(59,130,246,0.3);';
+                        btn.disabled = true;
+                        btn.textContent = '⏳ Collecting...';
+                        cancelBtn.style.display = 'inline-block';
+                        cancelBtn.disabled = false;
+                        cancelBtn.textContent = '⏹ Cancel';
+                        progressWrapper.style.display = 'block';
+                        if (progress.total > 0) {
+                            progressBar.style.width = progress.percent + '%';
+                            progressPct.textContent = progress.percent + '%';
+                            progressLabel.textContent = `Collecting ${progress.current}/${progress.total} devices`;
+                            lastDevice.textContent = progress.last_device;
+                        }
+                        const started = new Date(job.started_at);
+                        lastTime.textContent = `Started: ${started.toLocaleTimeString()}`;
+                    } else {
+                        progressWrapper.style.display = 'none';
+                        btn.disabled = false;
+                        btn.textContent = '🔄 Collect Now';
+                        cancelBtn.style.display = 'none';
+
+                        if (job.status === 'completed') {
+                            badge.textContent = 'COMPLETED';
+                            badge.style.cssText = 'padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; background:rgba(16,185,129,0.2); color:#10b981; border:1px solid rgba(16,185,129,0.3);';
+                            const finished = new Date(job.finished_at);
+                            lastTime.textContent = `Last collect: ${finished.toLocaleString()}`;
+                            stats.textContent = `✅ ${job.success_count} devices, ${job.total_interfaces} interfaces | ❌ ${job.failed_count} failed | ⏱️ ${Math.round(job.duration_seconds/60)}m`;
+                        } else if (job.status === 'cancelled') {
+                            badge.textContent = 'CANCELLED';
+                            badge.style.cssText = 'padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; background:rgba(239,68,68,0.2); color:#ef4444; border:1px solid rgba(239,68,68,0.3);';
+                            const finished = new Date(job.finished_at);
+                            lastTime.textContent = `Cancelled: ${finished.toLocaleString()}`;
+                            stats.textContent = `⏹ Collection cancelled by user`;
+                        } else {
+                            badge.textContent = 'IDLE';
+                            badge.style.cssText = 'padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; background:rgba(16,185,129,0.2); color:#10b981; border:1px solid rgba(16,185,129,0.3);';
+                            const started = new Date(job.started_at);
+                            lastTime.textContent = `Last collect: ${started.toLocaleString()}`;
+                        }
+                        if (collectionPollTimer) { clearInterval(collectionPollTimer); collectionPollTimer = null; }
+                    }
+                } catch(e) { console.error('Poll collection error:', e); }
+            }
+
             function switchTab(tab) {
                 currentTab = tab;
                 document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -2496,7 +2711,7 @@
                 if (tab === 'dashboard') loadDashboard();
                 if (tab === 'ip-conflicts') loadIPConflicts();
                 if (tab === 'interfaces') loadInterfaceDevices();
-                if (tab === 'devices') loadDeviceCards();
+                if (tab === 'devices') { loadDeviceCards(); startDeviceAutoRefresh(); }
                 if (tab === 'topology') loadTopology();
                 if (tab === 'anomalies') loadAnomalies();
                 if (tab === 'content') loadContentTargets();
@@ -2506,6 +2721,7 @@
 
             function refreshData() {
                 if (currentTab === 'dashboard') loadDashboard();
+                if (currentTab !== 'devices') stopDeviceAutoRefresh();
                 else if (currentTab === 'devices') loadDeviceCards();
                 else if (currentTab === 'topology') loadTopology();
                 else if (currentTab === 'anomalies') loadAnomalies();
@@ -2652,6 +2868,7 @@
             }
 
             document.addEventListener('DOMContentLoaded', function() {
+                pollCollectionStatus();
                 // Don't auto-load; wait for checkAuth to confirm session
             });
 
@@ -4125,7 +4342,7 @@ async function loadInterfaceGraph(tab) {
             }
 
             return {
-                switchTab, loadDashboard, loadDeviceCards, renderDeviceLatencyChart, collectSingleDevice, testDeviceSNMP, filterDeviceMonitoring, renderMonitorTable, sortMonitorDevices, loadTopology, loadAnomalies, searchAnomalies,
+                switchTab, loadDashboard, loadDeviceCards, renderDeviceLatencyChart, collectSingleDevice, testDeviceSNMP, filterDeviceMonitoring, renderMonitorTable, sortMonitorDevices, loadTopology, loadAnomalies, searchAnomalies, triggerCollection, pollCollectionStatus, cancelCollection,
                 loadManageDevices, filterDeviceCategory, renderDeviceTable, openAddModal, closeModal, editDevice, deleteDevice, saveDevice,
                 openDeviceDetail, closeDetailModal, changeTimeRange, refreshData,
                 loadIPConflicts, loadInterfaceDevices, loadInterfaces, searchInterfaces, filterInterfaces, sortInterfaces, refreshInterfaces, openInterfaceDetail, closeInterfaceModal, openRealtimeWindow, switchGraphTab, startRealtimePolling, stopRealtimePolling, changeRealtimeInterval, changeRealtimeWindow, switchChartType, switchInterfaceView, toggleGraphAutoRefresh, updateInterfaceStats, formatBytes, formatBandwidth, renderInterfaceTable, searchIPInventory, resolveConflict, runIPScan,
@@ -4230,3 +4447,4 @@ async function loadInterfaceGraph(tab) {
     <script src="/ai-assistant.js"></script>
 </body>
 </html>
+

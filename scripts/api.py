@@ -841,20 +841,13 @@ def get_devices_status():
             # Calculate time since last collection
             last_seen = None
             snmp_status = 'unknown'
-            
+            import datetime
             if dev['last_collection']:
-                import datetime
                 time_diff = datetime.datetime.now() - dev['last_collection']
                 last_seen = int(time_diff.total_seconds())
-                
-                # If collected in last 10 minutes, SNMP is OK
-                if last_seen < 600:
-                    snmp_status = 'ok'
-                elif last_seen < 3600:
-                    snmp_status = 'warning'
-                else:
-                    snmp_status = 'error'
-            
+                if last_seen < 600: snmp_status = 'ok'
+                elif last_seen < 3600: snmp_status = 'warning'
+                else: snmp_status = 'error'
             result.append({
                 'id': dev['id'],
                 'hostname': dev['hostname'],
@@ -1905,6 +1898,190 @@ Uptime: {uptime_days} hari
     except Exception as e:
         return f"Error loading context: {str(e)}"
 
+
+
+@app.route('/api/collection/trigger', methods=['POST'])
+def trigger_collection():
+    """Trigger manual interface collection"""
+    try:
+        # Cek apakah collection sedang berjalan
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT id FROM collection_jobs WHERE status='running' ORDER BY started_at DESC LIMIT 1")
+        running = cur.fetchone()
+        if running:
+            cur.close(); conn.close()
+            return jsonify({'success': False, 'error': 'Collection already running', 'job_id': running['id']})
+
+        # Insert job baru
+        cur.execute("INSERT INTO collection_jobs (status, triggered_by) VALUES ('running', 'manual') RETURNING id")
+        job_id = cur.fetchone()['id']
+        conn.commit()
+        cur.close(); conn.close()
+
+
+        # Clear log file sebelum collection baru
+        open('/tmp/interface_cron.log', 'w').close()
+
+        # Jalankan collection di background
+        import threading, os
+
+        def run_collection(job_id):
+            import time, re
+            start = time.time()
+            proc = None
+            try:
+                log_file = open('/tmp/interface_cron.log', 'a')
+                proc = subprocess.Popen(
+                    ['/opt/isp-monitoring/venv/bin/python3', '/opt/isp-monitoring/scripts/interface_monitor_v2.py'],
+                    stdout=log_file, stderr=log_file, text=True
+                )
+                # Simpan PID agar bisa di-cancel
+                with open('/tmp/interface_collect.pid', 'w') as pf:
+                    pf.write(str(proc.pid))
+
+                proc.wait()
+                log_file.close()
+                elapsed = time.time() - start
+
+                if proc.returncode == -15:  # SIGTERM = cancelled
+                    final_status = 'cancelled'
+                    success = failed = interfaces = 0
+                else:
+                    final_status = 'completed'
+                    success = 0; failed = 0; interfaces = 0
+                    with open('/tmp/interface_cron.log', 'r') as lf:
+                        for line in lf.readlines():
+                            if 'SUCCESS:' in line:
+                                m = re.search(r'SUCCESS: (\d+) devices, (\d+)', line)
+                                if m: success, interfaces = int(m.group(1)), int(m.group(2))
+                            if 'FAILED:' in line:
+                                m = re.search(r'FAILED: (\d+)', line)
+                                if m: failed = int(m.group(1))
+
+                conn2 = get_db()
+                cur2 = conn2.cursor()
+                cur2.execute("""UPDATE collection_jobs SET status=%s, finished_at=NOW(),
+                    success_count=%s, failed_count=%s, total_interfaces=%s,
+                    total_devices=%s, duration_seconds=%s WHERE id=%s""",
+                    (final_status, success, failed, interfaces, success+failed, elapsed, job_id))
+                conn2.commit(); cur2.close(); conn2.close()
+
+            except Exception as e:
+                conn2 = get_db()
+                cur2 = conn2.cursor()
+                cur2.execute("UPDATE collection_jobs SET status='failed', finished_at=NOW() WHERE id=%s", (job_id,))
+                conn2.commit(); cur2.close(); conn2.close()
+            finally:
+                try: os.remove('/tmp/interface_collect.pid')
+                except: pass
+
+        t = threading.Thread(target=run_collection, args=(job_id,), daemon=True)
+        t.start()
+        return jsonify({'success': True, 'job_id': job_id, 'message': 'Collection started'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/collection/status', methods=['GET'])
+def collection_status():
+    """Get collection status dengan dead process detection"""
+    try:
+        import os
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""SELECT * FROM collection_jobs ORDER BY started_at DESC LIMIT 1""")
+        latest = cur.fetchone()
+
+        # Dead process detection: status 'running' tapi PID file tidak ada
+        # dan sudah lebih dari 35 menit → mark sebagai failed
+        if latest and latest['status'] == 'running':
+            pid_exists = os.path.exists('/tmp/interface_collect.pid')
+            if not pid_exists:
+                from datetime import datetime, timezone
+                started = latest['started_at']
+                if started.tzinfo is None:
+                    started = started.replace(tzinfo=timezone.utc)
+                elapsed = (datetime.now(timezone.utc) - started).total_seconds()
+                if elapsed > 120:  # 2 menit tanpa PID file = dead process
+                    cur.execute("""UPDATE collection_jobs SET status='failed', finished_at=NOW()
+                        WHERE id=%s""", (latest['id'],))
+                    conn.commit()
+                    latest['status'] = 'failed'
+                    latest['finished_at'] = datetime.now(timezone.utc)
+
+        # Progress dari log file
+        progress = {'current': 0, 'total': 0, 'percent': 0, 'last_device': ''}
+        if latest and latest['status'] == 'running':
+            try:
+                import re
+                with open('/tmp/interface_cron.log', 'r') as f:
+                    lines_log = f.readlines()
+                for line in reversed(lines_log):
+                    m = re.search(r'(\d+)/(\d+)', line)
+                    if m:
+                        cur_val = int(m.group(1))
+                        tot_val = int(m.group(2))
+                        if tot_val > 10:
+                            progress['current'] = cur_val
+                            progress['total'] = tot_val
+                            progress['percent'] = round(cur_val / tot_val * 100, 1)
+                            progress['last_device'] = line.strip()
+                            break
+            except: pass
+
+        cur.close(); conn.close()
+        return jsonify({'success': True, 'job': dict(latest) if latest else None, 'progress': progress})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/collection/cancel', methods=['POST'])
+def cancel_collection():
+    """Cancel collection yang sedang berjalan"""
+    try:
+        import os, signal
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""SELECT id FROM collection_jobs WHERE status='running' ORDER BY started_at DESC LIMIT 1""")
+        running = cur.fetchone()
+
+        if not running:
+            cur.close(); conn.close()
+            return jsonify({'success': False, 'error': 'No collection running'})
+
+        job_id = running['id']
+        killed = False
+
+        # Kill via PID file
+        pid_file = '/tmp/interface_collect.pid'
+        if os.path.exists(pid_file):
+            try:
+                with open(pid_file, 'r') as pf:
+                    pid = int(pf.read().strip())
+                os.kill(pid, signal.SIGTERM)
+                killed = True
+            except (ProcessLookupError, ValueError):
+                pass
+            finally:
+                try: os.remove(pid_file)
+                except: pass
+
+        # Fallback: pkill by script name
+        if not killed:
+            import subprocess
+            subprocess.run(['pkill', '-f', 'interface_monitor_v2.py'], capture_output=True)
+
+        # Update DB
+        cur.execute("""UPDATE collection_jobs SET status='cancelled', finished_at=NOW() WHERE id=%s""", (job_id,))
+        conn.commit()
+        cur.close(); conn.close()
+
+        # Cleanup lock file
+        try: os.remove('/tmp/interface_collect.lock')
+        except: pass
+
+        return jsonify({'success': True, 'message': 'Collection cancelled'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
     print("🚀 SDI Monitoring API Server Starting...")

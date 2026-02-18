@@ -15,6 +15,7 @@ import psycopg2.extras
 from pysnmp.hlapi import *
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
+from tqdm import tqdm
 
 # Database config
 DB_CONFIG = {
@@ -39,7 +40,8 @@ OIDS = {
     'ifInErrors': '1.3.6.1.2.1.2.2.1.14',
     'ifOutErrors': '1.3.6.1.2.1.2.2.1.20',
     'ifInDiscards': '1.3.6.1.2.1.2.2.1.13',
-    'ifOutDiscards': '1.3.6.1.2.1.2.2.1.19'
+    'ifOutDiscards': '1.3.6.1.2.1.2.2.1.19',
+    'ifDisplayString': '1.3.6.1.2.1.31.1.1.1.18'
 }
 
 STATUS_MAP = {'1': 'up', '2': 'down'}
@@ -48,9 +50,10 @@ STATUS_MAP = {'1': 'up', '2': 'down'}
 INTERFACE_FILTERS = {
     'juniper_mx': r'^(ge-[0-9/]+|xe-[0-9/]+|et-[0-9/]+|ae\d+(\.\d+)?)$',
     'juniper_qfx': r'^(ge-[0-9/]+|xe-[0-9/]+|et-[0-9/]+|ae\d+(\.\d+)?)$',
-    'exos': r'^\d+$',
+    'exos': r'^.+Port\s+\d+$',
     'huawei': r'^(GigabitEthernet|XGigabitEthernet|40GE|100GE|Eth-Trunk)[0-9/]+$',
-    'mikrotik': r'^(ether|sfp)[0-9]+$',
+    'mikrotik': r'^(ether|sfp|bridge|vlan|bond|vrrp)[0-9a-zA-Z_\-]*$',
+    'zte_olt': r'^(gpon|epon|eth|ge|10ge|uplink|onu|olt)[0-9/_\-a-zA-Z]+$',
     'cisco': r'^(GigabitEthernet|TenGigabitEthernet|FortyGigabitEthernet)[0-9/]+$',
     'default': r'^(eth[0-9]|ens[0-9]|eno[0-9]|enp[0-9]|ge-[0-9/]+|xe-[0-9/]+|et-[0-9/]+|ae\d+)$'
 }
@@ -77,20 +80,29 @@ def safe_int(val, default=0):
     except (ValueError, TypeError):
         return default
 
-def snmp_walk(ip, community, oid, timeout=5):
-    """SNMP bulk walk with 5 second timeout"""
+def snmp_walk(ip, community, oid, timeout=5, use_next=False):
+    """SNMP walk - bulkCmd for modern devices, nextCmd for legacy (EXOS)"""
     result = {}
     try:
-        iterator = bulkCmd(
-            SnmpEngine(),
-            CommunityData(community),
-            UdpTransportTarget((ip, 161), timeout=timeout, retries=0),
-            ContextData(),
-            0, 50,
-            ObjectType(ObjectIdentity(oid)),
-            lexicographicMode=False
-        )
-
+        if use_next:
+            iterator = nextCmd(
+                SnmpEngine(),
+                CommunityData(community),
+                UdpTransportTarget((ip, 161), timeout=timeout, retries=2),
+                ContextData(),
+                ObjectType(ObjectIdentity(oid)),
+                lexicographicMode=False
+            )
+        else:
+            iterator = bulkCmd(
+                SnmpEngine(),
+                CommunityData(community),
+                UdpTransportTarget((ip, 161), timeout=timeout, retries=2),
+                ContextData(),
+                0, 50,
+                ObjectType(ObjectIdentity(oid)),
+                lexicographicMode=False
+            )
         for error_indication, error_status, error_index, var_binds in iterator:
             if error_indication or error_status:
                 break
@@ -99,11 +111,9 @@ def snmp_walk(ip, community, oid, timeout=5):
                 value = var_bind[1]
                 index = oid_str.split('.')[-1]
                 result[index] = str(value) if value is not None else ''
-
         return result
     except Exception:
-        return {}
-
+        return result
 def snmp_get_multi(ip, community, base_oid, indices, timeout=5):
     """Targeted SNMP GET for specific indices - much faster than walking entire table.
 
@@ -125,7 +135,7 @@ def snmp_get_multi(ip, community, base_oid, indices, timeout=5):
                 getCmd(
                     SnmpEngine(),
                     CommunityData(community),
-                    UdpTransportTarget((ip, 161), timeout=timeout, retries=0),
+                    UdpTransportTarget((ip, 161), timeout=timeout, retries=2),
                     ContextData(),
                     *oid_objects
                 )
@@ -210,7 +220,9 @@ def collect_interface_stats(device):
     
     try:
         # Step 1: Get interface descriptions
-        descriptions = snmp_walk(ip, community, OIDS['ifDescr'], timeout=5)
+        snmp_timeout = 15 if device_type == 'exos' else 5
+        use_next = device_type == 'exos'
+        descriptions = snmp_walk(ip, community, OIDS['ifDescr'], timeout=snmp_timeout, use_next=use_next)
         if not descriptions:
             return {'success': False, 'hostname': hostname, 'error': 'SNMP timeout'}
         
@@ -227,19 +239,20 @@ def collect_interface_stats(device):
         # Step 3: Targeted SNMP GET — only fetch data for filtered indices
         # This is MUCH faster than walking entire tables (e.g. 5 indices vs 600+)
         target_indices = set(physical_if.keys())
-        descriptions_alias = snmp_get_multi(ip, community, OIDS['ifAlias'], target_indices, timeout=5)
-        admin_status = snmp_get_multi(ip, community, OIDS['ifAdminStatus'], target_indices, timeout=5)
-        oper_status = snmp_get_multi(ip, community, OIDS['ifOperStatus'], target_indices, timeout=5)
-        speed = snmp_get_multi(ip, community, OIDS['ifSpeed'], target_indices, timeout=5)
-        high_speed = snmp_get_multi(ip, community, OIDS['ifHighSpeed'], target_indices, timeout=5)
-        in_octets = snmp_get_multi(ip, community, OIDS['ifHCInOctets'], target_indices, timeout=5)
-        out_octets = snmp_get_multi(ip, community, OIDS['ifHCOutOctets'], target_indices, timeout=5)
-        in_packets = snmp_get_multi(ip, community, OIDS['ifInUcastPkts'], target_indices, timeout=5)
-        out_packets = snmp_get_multi(ip, community, OIDS['ifOutUcastPkts'], target_indices, timeout=5)
-        in_errors = snmp_get_multi(ip, community, OIDS['ifInErrors'], target_indices, timeout=5)
-        out_errors = snmp_get_multi(ip, community, OIDS['ifOutErrors'], target_indices, timeout=5)
-        in_discards = snmp_get_multi(ip, community, OIDS['ifInDiscards'], target_indices, timeout=5)
-        out_discards = snmp_get_multi(ip, community, OIDS['ifOutDiscards'], target_indices, timeout=5)
+        descriptions_alias = snmp_get_multi(ip, community, OIDS['ifAlias'], target_indices, timeout=snmp_timeout)
+        display_strings = snmp_get_multi(ip, community, OIDS['ifDisplayString'], target_indices, timeout=snmp_timeout)
+        admin_status = snmp_get_multi(ip, community, OIDS['ifAdminStatus'], target_indices, timeout=snmp_timeout)
+        oper_status = snmp_get_multi(ip, community, OIDS['ifOperStatus'], target_indices, timeout=snmp_timeout)
+        speed = snmp_get_multi(ip, community, OIDS['ifSpeed'], target_indices, timeout=snmp_timeout)
+        high_speed = snmp_get_multi(ip, community, OIDS['ifHighSpeed'], target_indices, timeout=snmp_timeout)
+        in_octets = snmp_get_multi(ip, community, OIDS['ifHCInOctets'], target_indices, timeout=snmp_timeout)
+        out_octets = snmp_get_multi(ip, community, OIDS['ifHCOutOctets'], target_indices, timeout=snmp_timeout)
+        in_packets = snmp_get_multi(ip, community, OIDS['ifInUcastPkts'], target_indices, timeout=snmp_timeout)
+        out_packets = snmp_get_multi(ip, community, OIDS['ifOutUcastPkts'], target_indices, timeout=snmp_timeout)
+        in_errors = snmp_get_multi(ip, community, OIDS['ifInErrors'], target_indices, timeout=snmp_timeout)
+        out_errors = snmp_get_multi(ip, community, OIDS['ifOutErrors'], target_indices, timeout=snmp_timeout)
+        in_discards = snmp_get_multi(ip, community, OIDS['ifInDiscards'], target_indices, timeout=snmp_timeout)
+        out_discards = snmp_get_multi(ip, community, OIDS['ifOutDiscards'], target_indices, timeout=snmp_timeout)
         
         # Step 4: Build parent ae description map for inheritance
         # ae14.xxx subinterfaces often have empty ifAlias — inherit from parent ae14
@@ -329,18 +342,23 @@ def main():
     
     with ThreadPoolExecutor(max_workers=10) as executor:
         futures = {executor.submit(collect_interface_stats, dict(dev)): dev for dev in devices}
-        
-        for i, future in enumerate(as_completed(futures), 1):
-            result = future.result()
-            
-            if result['success']:
-                success_count += 1
-                total_interfaces += result['interfaces']
-                print(f"✅ [{i}/{len(devices)}] {result['hostname']}: {result['interfaces']} interfaces")
-            else:
-                failed_count += 1
-                print(f"❌ [{i}/{len(devices)}] {result['hostname']}: {result.get('error', 'Unknown error')}")
-    
+        with tqdm(
+            total=len(devices),
+            desc='  Collecting',
+            unit='dev',
+            bar_format='  {l_bar}{bar:40}{r_bar}',
+            dynamic_ncols=True
+        ) as pbar:
+            for i, future in enumerate(as_completed(futures), 1):
+                result = future.result()
+                if result['success']:
+                    success_count += 1
+                    total_interfaces += result['interfaces']
+                    tqdm.write(f"  ✅ [{i}/{len(devices)}] {result['hostname']}: {result['interfaces']} ifaces")
+                else:
+                    failed_count += 1
+                    tqdm.write(f"  ❌ [{i}/{len(devices)}] {result['hostname']}: {result.get('error','timeout')}")
+                pbar.update(1)
     elapsed = time.time() - start_time
     
     print("\n" + "=" * 80)
