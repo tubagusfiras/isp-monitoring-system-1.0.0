@@ -234,7 +234,8 @@
                     borderColor: '#3b82f6',
                     backgroundColor: 'rgba(59, 130, 246, 0.1)',
                     tension: 0.4,
-                    fill: true
+                    fill: true,
+                    spanGaps: false
                 }]
             },
             options: {
@@ -313,26 +314,39 @@
         }
 
         function updateChart() {
-        console.log('Updating chart with', dataPoints.length, 'points');
-        if (dataPoints.length === 0) {
-            console.warn('No data points to chart!');
-            return;
-        }
-        console.log('updateChart called, dataPoints:', dataPoints.length);
-            // Format time labels
+            if (dataPoints.length === 0) return;
+            const now = Date.now();
+            const totalSlots = Math.floor(timeWindow / pollInterval) + 1;
+
+            // Format HH:MM
             const formatTime = (ts) => {
                 const d = new Date(ts);
-                return d.getHours().toString().padStart(2,"0") + ":" + d.getMinutes().toString().padStart(2,"0");
+                return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
             };
-            chart.data.labels = dataPoints.map(d => formatTime(d.timestamp));
-        chart.data.datasets[0].data = dataPoints.map(d => d.rtt || 0);
-        
-        console.log('Chart labels:', chart.data.labels.length);
-        console.log('Chart data:', chart.data.datasets[0].data);
-            chart.data.datasets[0].data = dataPoints.map(d => d.rtt || 0);
-            chart.update('active');
-        }
 
+            // Generate labels (LEFT=now-window, RIGHT=now)
+            const labels = [];
+            for (let i = totalSlots - 1; i >= 0; i--) {
+                const t = now - (i * pollInterval);
+                const secs = Math.floor(t / 1000);
+                const tickSec = pollInterval >= 300000 ? 300 : pollInterval >= 60000 ? 60 : 30;
+                labels.push(secs % tickSec === 0 || i === totalSlots - 1 || i === 0 ? formatTime(t) : '');
+            }
+
+            // Position data to RIGHT, null to LEFT (Cacti-style)
+            const dataLen = dataPoints.length;
+            let finalRtt;
+            if (dataLen >= totalSlots) {
+                finalRtt = dataPoints.slice(-totalSlots).map(d => d.rtt || null);
+            } else {
+                const pad = Array(totalSlots - dataLen).fill(null);
+                finalRtt = pad.concat(dataPoints.map(d => d.rtt || null));
+            }
+
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = finalRtt;
+            chart.update('none');
+        }
         function updateStats(data) {
             const currentEl = document.getElementById('currentRtt');
             const avgEl = document.getElementById('avgRtt');

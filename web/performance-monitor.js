@@ -47,13 +47,15 @@
             data: {
                 datasets: [{
                     data: [0, 100],
-                    backgroundColor: [color, 'rgba(255,255,255,0.1)'],
-                    borderWidth: 0
+                    backgroundColor: [color, 'rgba(255,255,255,0.08)'],
+                    borderWidth: 0,
+                    borderRadius: 4
                 }]
             },
             options: {
-                responsive: false,
-                cutout: '75%',
+                responsive: true,
+                maintainAspectRatio: true,
+                cutout: '70%',
                 rotation: -90,
                 circumference: 180,
                 plugins: {
@@ -106,8 +108,7 @@
                     y: {
                         beginAtZero: true,
                         grid: { color: 'rgba(255,255,255,0.05)' },
-                        ticks: { color: 'rgba(255,255,255,0.7)' },
-                        suggestedMax: 10
+                        ticks: { color: 'rgba(255,255,255,0.7)' }
                     }
                 },
                 plugins: {

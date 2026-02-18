@@ -210,7 +210,66 @@
         let countdownTimer = null;
         let interval = 10;
         let window_size = 300;
-        let chartData = { labels: [], inData: [], outData: [] };
+        let chartData = { labels: [], inData: [], outData: [], timestamps: [] };
+
+        // Auto unit scaling
+        function formatBandwidth(mbps) {
+            if (mbps === null || mbps === undefined || isNaN(mbps)) return '--';
+            if (mbps < 1) return (mbps * 1000).toFixed(2) + ' Kbps';
+            if (mbps < 1000) return mbps.toFixed(2) + ' Mbps';
+            return (mbps / 1000).toFixed(2) + ' Gbps';
+        }
+
+        // Smart tick interval
+        function getTickInterval(windowSecs) {
+            if (windowSecs <= 60)   return 10;
+            if (windowSecs <= 300)  return 60;
+            if (windowSecs <= 600)  return 120;
+            if (windowSecs <= 1800) return 300;
+            if (windowSecs <= 3600) return 600;
+            return 1800;
+        }
+
+        // Format HH:MM
+        function formatHHMM(date) {
+            return String(date.getHours()).padStart(2,'0') + ':' + String(date.getMinutes()).padStart(2,'0');
+        }
+
+        // Update chart - data terbaru di KANAN, null di KIRI
+        function updateChart() {
+            const now = Date.now();
+            const maxPoints = Math.floor(window_size / interval);
+            const totalSlots = maxPoints + 1;
+            const tickSec = getTickInterval(window_size);
+            const labels = [];
+
+            // Generate X-axis labels (LEFT=now-window, RIGHT=now)
+            for (let i = maxPoints; i >= 0; i--) {
+                const t = new Date(now - (i * interval * 1000));
+                const secs = Math.floor(t.getTime() / 1000);
+                labels.push(secs % tickSec === 0 || i === maxPoints || i === 0 ? formatHHMM(t) : '');
+            }
+
+            // Position data to RIGHT, null to LEFT
+            const dataLen = chartData.inData.length;
+            let finalIn, finalOut;
+            if (dataLen === 0) {
+                finalIn = Array(totalSlots).fill(null);
+                finalOut = Array(totalSlots).fill(null);
+            } else if (dataLen >= totalSlots) {
+                finalIn = chartData.inData.slice(-totalSlots);
+                finalOut = chartData.outData.slice(-totalSlots);
+            } else {
+                const pad = Array(totalSlots - dataLen).fill(null);
+                finalIn = pad.concat(chartData.inData);
+                finalOut = pad.concat(chartData.outData);
+            }
+
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = finalIn;
+            chart.data.datasets[1].data = finalOut;
+            chart.update('none');
+        }
         let peaks = { in: 0, out: 0 };
         let chart = null;
 
@@ -238,7 +297,8 @@
                             borderWidth: 2,
                             tension: 0.4,
                             pointRadius: 2,
-                            fill: true
+                            fill: true,
+                            spanGaps: false
                         },
                         {
                             label: 'OUT (Mbps)',
@@ -248,7 +308,8 @@
                             borderWidth: 2,
                             tension: 0.4,
                             pointRadius: 2,
-                            fill: true
+                            fill: true,
+                            spanGaps: false
                         }
                     ]
                 },
@@ -272,7 +333,14 @@
                             grid: { color: 'rgba(255,255,255,0.1)' }
                         },
                         y: {
-                            ticks: { color: '#fff' },
+                            ticks: { color: '#fff',
+                                callback: function(v) {
+                                    if (v===0) return '0';
+                                    if (v<1) return (v*1000).toFixed(0)+' Kbps';
+                                    if (v<1000) return v.toFixed(0)+' Mbps';
+                                    return (v/1000).toFixed(2)+' Gbps';
+                                }
+                            },
                             grid: { color: 'rgba(255,255,255,0.1)' },
                             title: {
                                 display: true,
@@ -301,17 +369,17 @@
                     const { in_mbps, out_mbps } = data.data;
                     
                     // Update current
-                    document.getElementById('currentIn').textContent = in_mbps.toFixed(2) + ' Mbps';
-                    document.getElementById('currentOut').textContent = out_mbps.toFixed(2) + ' Mbps';
+                    document.getElementById('currentIn').textContent = formatBandwidth(in_mbps);
+                    document.getElementById('currentOut').textContent = formatBandwidth(out_mbps);
                     
                     // Update peaks
                     if (in_mbps > peaks.in) {
                         peaks.in = in_mbps;
-                        document.getElementById('peakIn').textContent = in_mbps.toFixed(2) + ' Mbps';
+                        document.getElementById('peakIn').textContent = formatBandwidth(in_mbps);
                     }
                     if (out_mbps > peaks.out) {
                         peaks.out = out_mbps;
-                        document.getElementById('peakOut').textContent = out_mbps.toFixed(2) + ' Mbps';
+                        document.getElementById('peakOut').textContent = formatBandwidth(out_mbps);
                     }
                     
                     // Add to chart
@@ -331,14 +399,11 @@
                     // Calculate averages
                     const avgIn = chartData.inData.reduce((a,b) => a+b, 0) / chartData.inData.length;
                     const avgOut = chartData.outData.reduce((a,b) => a+b, 0) / chartData.outData.length;
-                    document.getElementById('avgIn').textContent = avgIn.toFixed(2) + ' Mbps';
-                    document.getElementById('avgOut').textContent = avgOut.toFixed(2) + ' Mbps';
+                    document.getElementById('avgIn').textContent = formatBandwidth(avgIn);
+                    document.getElementById('avgOut').textContent = formatBandwidth(avgOut);
                     
                     // Update chart
-                    chart.data.labels = chartData.labels;
-                    chart.data.datasets[0].data = chartData.inData;
-                    chart.data.datasets[1].data = chartData.outData;
-                    chart.update('none');
+                    updateChart();
                 }
             } catch (e) {
                 console.error('Poll error:', e);
@@ -399,6 +464,9 @@
 
         function changeWindow() {
             window_size = parseInt(document.getElementById('windowSelect').value);
+            peaks = { in: 0, out: 0 };
+            document.getElementById('peakIn').textContent = '--';
+            document.getElementById('peakOut').textContent = '--';
             const maxPoints = Math.floor(window_size / interval);
             if (chartData.labels.length > maxPoints) {
                 const excess = chartData.labels.length - maxPoints;

@@ -622,15 +622,15 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                 <div class="stat-card" style="padding: 20px;">
                     <h3 style="font-size: 15px; font-weight: 600; margin-bottom: 15px; color: white;">Network Traffic (MB/s)</h3>
-                    <div style="height: 250px; position: relative;">
-                        <canvas id="networkChart"></canvas>
+                    <div style="height: 300px; position: relative;">
+                        <canvas id="networkChart" style="width:100%;height:100%;"></canvas>
                     </div>
                 </div>
                 
                 <div class="stat-card" style="padding: 20px;">
                     <h3 style="font-size: 15px; font-weight: 600; margin-bottom: 15px; color: white;">System Load Average</h3>
-                    <div style="height: 250px; position: relative;">
-                        <canvas id="loadChart"></canvas>
+                    <div style="height: 300px; position: relative;">
+                        <canvas id="loadChart" style="width:100%;height:100%;"></canvas>
                     </div>
                 </div>
             </div>
@@ -1123,13 +1123,16 @@
                     <button class="modal-close" onclick="app.closeContentDetailModal()">&times;</button>
                 </div>
                 <div class="detail-stats" id="contentDetailStats"></div>
-                <div class="time-range-selector">
-                    <button class="time-btn active" onclick="app.changeContentDetailRange(1, event)">1h</button>
-                    <button class="time-btn" onclick="app.changeContentDetailRange(4, event)">4h</button>
-                    <button class="time-btn" onclick="app.changeContentDetailRange(6, event)">6h</button>
-                    <button class="time-btn" onclick="app.changeContentDetailRange(24, event)">24h</button>
-                    <button class="time-btn" onclick="app.changeContentDetailRange(168, event)">7d</button>
-                    <button class="time-btn" onclick="app.changeContentDetailRange(720, event)">30d</button>
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                    <div class="time-range-selector">
+                        <button class="time-btn active" onclick="app.changeContentDetailRange(1, event)">1h</button>
+                        <button class="time-btn" onclick="app.changeContentDetailRange(4, event)">4h</button>
+                        <button class="time-btn" onclick="app.changeContentDetailRange(6, event)">6h</button>
+                        <button class="time-btn" onclick="app.changeContentDetailRange(24, event)">24h</button>
+                        <button class="time-btn" onclick="app.changeContentDetailRange(168, event)">7d</button>
+                        <button class="time-btn" onclick="app.changeContentDetailRange(720, event)">30d</button>
+                    </div>
+                    <button onclick="app.resetPacketLossStats()" style="background:rgba(239,68,68,0.2); border:1px solid rgba(239,68,68,0.4); color:#ef4444; padding:6px 14px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600;">🔄 Reset Packet Loss</button>
                 </div>
                 <div class="chart-wrapper">
                     <div class="detail-chart" style="height:350px; position:relative;">
@@ -1379,9 +1382,7 @@
                     const anomalies = await anomalyRes.json();
 
                     document.getElementById('totalDevices').textContent = stats.total_devices || 0;
-                    let healthyCount = 0;
-                    if (latency.data) healthyCount = latency.data.filter(d => getDeviceStatus(d) === 'healthy').length;
-                    document.getElementById('healthyDevices').textContent = healthyCount;
+                    document.getElementById('healthyDevices').textContent = stats.healthy_devices || 0;
                     if (latency.data && latency.data.length > 0) {
                         const avgRtt = latency.data.reduce((sum, d) => sum + (d.rtt_avg || 0), 0) / latency.data.length;
                         document.getElementById('avgLatency').textContent = avgRtt.toFixed(2) + ' ms';
@@ -3849,8 +3850,41 @@ async function loadInterfaceGraph(tab) {
                 } catch(e) {}
             }
 
+            function getTimeAxisConfig(hours) {
+                if (hours <= 1) return {
+                    unit: 'minute', stepSize: 10,
+                    tooltipFormat: 'HH:mm',
+                    displayFormats: { minute: 'HH:mm' },
+                    maxTicksLimit: 8
+                };
+                if (hours <= 6) return {
+                    unit: 'minute', stepSize: 30,
+                    tooltipFormat: 'HH:mm',
+                    displayFormats: { minute: 'HH:mm' },
+                    maxTicksLimit: 10
+                };
+                if (hours <= 24) return {
+                    unit: 'hour', stepSize: 1,
+                    tooltipFormat: 'HH:mm',
+                    displayFormats: { hour: 'HH:mm' },
+                    maxTicksLimit: 12
+                };
+                if (hours <= 168) return {
+                    unit: 'day', stepSize: 1,
+                    tooltipFormat: 'MMM dd HH:mm',
+                    displayFormats: { day: 'MMM dd' },
+                    maxTicksLimit: 8
+                };
+                return {
+                    unit: 'day', stepSize: 3,
+                    tooltipFormat: 'MMM dd',
+                    displayFormats: { day: 'MMM dd' },
+                    maxTicksLimit: 10
+                };
+            }
             async function loadContentOverviewChart(hours) {
                 contentOverviewHours = hours;
+                const tc = getTimeAxisConfig(hours);
                 try {
                     const res = await fetch(`/api/content-targets/latency/all?hours=${hours}`, {credentials:'include'});
                     const data = await res.json();
@@ -3886,10 +3920,10 @@ async function loadInterfaceGraph(tab) {
                             interaction: { mode: 'index', intersect: false },
                             plugins: {
                                 legend: { display: true, position: 'top', labels: { color: '#fff', boxWidth: 12, font: { size: 11 } } },
-                                zoom: { zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }, pan: { enabled: true, mode: 'x' } }
+                                zoom: { zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }, pan: { enabled: true, mode: 'x' }, limits: { x: { min: 'original', max: 'original' } } }
                             },
                             scales: {
-                                x: { type: 'time', time: { tooltipFormat: 'HH:mm:ss', displayFormats: { minute: 'HH:mm', hour: 'HH:mm', day: 'MMM dd' } }, ticks: { color: 'rgba(255,255,255,0.6)', maxTicksLimit: 12 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                                x: { type: 'time', time: { tooltipFormat: tc.tooltipFormat, unit: tc.unit, stepSize: tc.stepSize, displayFormats: tc.displayFormats }, ticks: { color: 'rgba(255,255,255,0.6)', maxTicksLimit: tc.maxTicksLimit }, grid: { color: 'rgba(255,255,255,0.05)' } },
                                 y: { title: { display: true, text: 'Latency (ms)', color: 'rgba(255,255,255,0.6)' }, ticks: { color: 'rgba(255,255,255,0.6)' }, grid: { color: 'rgba(255,255,255,0.08)' }, beginAtZero: true }
                             }
                         }
@@ -3946,6 +3980,7 @@ async function loadInterfaceGraph(tab) {
             }
 
             async function loadContentDetailChart(targetId, hours) {
+                const tc = getTimeAxisConfig(hours);
                 try {
                     const res = await fetch(`/api/content-targets/${targetId}/latency?hours=${hours}`, {credentials:'include'});
                     const data = await res.json();
@@ -3953,6 +3988,23 @@ async function loadInterfaceGraph(tab) {
 
                     const rttData = data.data.map(d => ({ x: new Date(d.timestamp), y: d.rtt_avg }));
                     const lossData = data.data.map(d => ({ x: new Date(d.timestamp), y: d.packet_loss }));
+
+                    // Update stats dari historical range
+                    const validRtts = data.data.filter(d => d.rtt_avg !== null).map(d => d.rtt_avg);
+                    const validLoss = data.data.filter(d => d.packet_loss !== null).map(d => d.packet_loss);
+                    if (validRtts.length > 0) {
+                        const avgRtt = (validRtts.reduce((a,b) => a+b, 0) / validRtts.length).toFixed(2);
+                        const minRtt = Math.min(...validRtts).toFixed(2);
+                        const maxRtt = Math.max(...validRtts).toFixed(2);
+                        const maxLoss = validLoss.length > 0 ? Math.max(...validLoss).toFixed(1) : '0.0';
+                        const totalLoss = validLoss.filter(v => v > 0).length;
+                        document.getElementById('contentDetailStats').innerHTML = `
+                            <div class="detail-stat"><div class="detail-stat-label">AVG RTT</div><div class="detail-stat-value">${avgRtt} ms</div></div>
+                            <div class="detail-stat"><div class="detail-stat-label">MIN RTT</div><div class="detail-stat-value">${minRtt} ms</div></div>
+                            <div class="detail-stat"><div class="detail-stat-label">MAX RTT</div><div class="detail-stat-value">${maxRtt} ms</div></div>
+                            <div class="detail-stat"><div class="detail-stat-label">PACKET LOSS</div><div class="detail-stat-value" style="color:${maxLoss > 0 ? '#ef4444' : '#10b981'}">${maxLoss}% <span style="font-size:10px;opacity:0.7;">(${totalLoss} events)</span></div></div>
+                        `;
+                    }
 
                     if (contentDetailChart) contentDetailChart.destroy();
 
@@ -3991,10 +4043,10 @@ async function loadInterfaceGraph(tab) {
                             interaction: { mode: 'index', intersect: false },
                             plugins: {
                                 legend: { display: true, labels: { color: '#fff', boxWidth: 12 } },
-                                zoom: { zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }, pan: { enabled: true, mode: 'x' } }
+                                zoom: { zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }, pan: { enabled: true, mode: 'x' }, limits: { x: { min: 'original', max: 'original' } } }
                             },
                             scales: {
-                                x: { type: 'time', time: { tooltipFormat: 'HH:mm:ss', displayFormats: { minute: 'HH:mm', hour: 'HH:mm', day: 'MMM dd' } }, ticks: { color: 'rgba(255,255,255,0.6)', maxTicksLimit: 12 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                                x: { type: 'time', time: { tooltipFormat: tc.tooltipFormat, unit: tc.unit, stepSize: tc.stepSize, displayFormats: tc.displayFormats }, ticks: { color: 'rgba(255,255,255,0.6)', maxTicksLimit: tc.maxTicksLimit }, grid: { color: 'rgba(255,255,255,0.05)' } },
                                 y: { position: 'left', title: { display: true, text: 'Latency (ms)', color: 'rgba(255,255,255,0.6)' }, ticks: { color: 'rgba(255,255,255,0.6)' }, grid: { color: 'rgba(255,255,255,0.08)' }, beginAtZero: true },
                                 y1: { position: 'right', title: { display: true, text: 'Packet Loss (%)', color: 'rgba(255,255,255,0.6)' }, ticks: { color: 'rgba(239,68,68,0.6)' }, grid: { drawOnChartArea: false }, min: 0, max: 100 }
                             }
@@ -4005,6 +4057,11 @@ async function loadInterfaceGraph(tab) {
                 }
             }
 
+            function resetPacketLossStats() {
+                if (currentContentTargetId) {
+                    loadContentDetailChart(currentContentTargetId, contentDetailHours);
+                }
+            }
             function changeContentDetailRange(hours, evt) {
                 contentDetailHours = hours;
                 if (evt) {

@@ -223,6 +223,16 @@ def get_stats():
         cur.execute("SELECT COUNT(*) as total FROM devices WHERE is_active = true")
         total = cur.fetchone()['total']
         
+        cur.execute("""
+            SELECT COUNT(*) as healthy
+            FROM latency_results lr
+            JOIN (SELECT device_id, MAX(timestamp) as max_ts 
+                  FROM latency_results GROUP BY device_id) latest
+            ON lr.device_id = latest.device_id AND lr.timestamp = latest.max_ts
+            WHERE lr.packet_loss < 5 AND lr.rtt_avg < 100
+        """)
+        healthy = cur.fetchone()['healthy']
+        
         cur.execute("SELECT COUNT(*) as up FROM latency_results WHERE timestamp > NOW() - INTERVAL '5 minutes' AND rtt_avg > 0")
         up = cur.fetchone()['up']
         
@@ -235,7 +245,8 @@ def get_stats():
         return jsonify({
             'success': True, 
             'total_devices': total, 
-            'devices_up': up, 
+            'devices_up': up,
+            'healthy_devices': healthy, 
             'recent_anomalies': anomalies
         })
     except Exception as e:
