@@ -53,7 +53,7 @@ INTERFACE_FILTERS = {
     'exos': r'^.+Port\s+\d+$',
     'huawei': r'^(GigabitEthernet|XGigabitEthernet|40GE|100GE|Eth-Trunk)[0-9/]+$',
     'mikrotik': r'^(ether|sfp|bridge|vlan|bond|vrrp)[0-9a-zA-Z_\-]*$',
-    'zte_olt': r'^(gpon|epon|eth|ge|10ge|uplink|onu|olt)[0-9/_\-a-zA-Z]+$',
+    'zte_olt': r'^(gpon|epon|eth|ge|10ge|uplink|onu|olt)[0-9/_\-a-zA-Z]*$',
     'cisco': r'^(GigabitEthernet|TenGigabitEthernet|FortyGigabitEthernet)[0-9/]+$',
     'default': r'^(eth[0-9]|ens[0-9]|eno[0-9]|enp[0-9]|ge-[0-9/]+|xe-[0-9/]+|et-[0-9/]+|ae\d+)$'
 }
@@ -230,7 +230,7 @@ def collect_interface_stats(device):
         pattern = get_interface_filter(device_type)
         physical_if = {
             idx: name for idx, name in descriptions.items()
-            if re.search(pattern, name) and '.32767' not in name
+            if re.search(pattern, name, re.IGNORECASE) and '.32767' not in name
         }
 
         if not physical_if:
