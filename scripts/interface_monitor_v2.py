@@ -28,6 +28,7 @@ DB_CONFIG = {
 # SNMP OIDs
 OIDS = {
     'ifDescr': '1.3.6.1.2.1.2.2.1.2',
+    'ifName': '1.3.6.1.2.1.31.1.1.1.1',
     'ifAlias': '1.3.6.1.2.1.31.1.1.1.18',
     'ifAdminStatus': '1.3.6.1.2.1.2.2.1.7',
     'ifOperStatus': '1.3.6.1.2.1.2.2.1.8',
@@ -220,9 +221,11 @@ def collect_interface_stats(device):
     
     try:
         # Step 1: Get interface descriptions
+        # ZTE OLT: gunakan ifName karena ifDescr kosong
         snmp_timeout = 15 if device_type == 'exos' else 5
         use_next = device_type == 'exos'
-        descriptions = snmp_walk(ip, community, OIDS['ifDescr'], timeout=snmp_timeout, use_next=use_next)
+        desc_oid = OIDS['ifName'] if device_type == 'zte_olt' else OIDS['ifDescr']
+        descriptions = snmp_walk(ip, community, desc_oid, timeout=snmp_timeout, use_next=use_next)
         if not descriptions:
             return {'success': False, 'hostname': hostname, 'error': 'SNMP timeout'}
         
