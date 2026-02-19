@@ -947,7 +947,7 @@
 
                 <!-- Time tabs + Chart type + Auto-refresh -->
                 <div style="margin-bottom: 15px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
-                    <button class="graph-tab-btn active" data-tab="recent" onclick="app.switchGraphTab('recent')" style="background:rgba(255,255,255,0.1);border:none;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">30m</button>
+                    <button class="graph-tab-btn active" data-tab="recent" onclick="app.switchGraphTab('recent')" style="background:rgba(255,255,255,0.1);border:none;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">1h</button>
                     <button class="graph-tab-btn" data-tab="6h" onclick="app.switchGraphTab('6h')" style="background:rgba(255,255,255,0.05);border:none;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">6h</button>
                     <button class="graph-tab-btn" data-tab="daily" onclick="app.switchGraphTab('daily')" style="background:rgba(255,255,255,0.05);border:none;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">24h</button>
                     <button class="graph-tab-btn" data-tab="weekly" onclick="app.switchGraphTab('weekly')" style="background:rgba(255,255,255,0.05);border:none;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">7d</button>
@@ -3526,17 +3526,17 @@ async function pollRealtimeData() {
             const { in_mbps, out_mbps, timestamp } = data.data;
             
             // Update live stats
-            document.getElementById('realtimeLiveIn').textContent = in_mbps.toFixed(2) + ' Mbps';
-            document.getElementById('realtimeLiveOut').textContent = out_mbps.toFixed(2) + ' Mbps';
+            document.getElementById('realtimeLiveIn').textContent = formatBandwidth(in_mbps);
+            document.getElementById('realtimeLiveOut').textContent = formatBandwidth(out_mbps);
             
             // Update peaks
             if (in_mbps > realtimePeaks.in) {
                 realtimePeaks.in = in_mbps;
-                document.getElementById('realtimePeakIn').textContent = in_mbps.toFixed(2) + ' Mbps';
+                document.getElementById('realtimePeakIn').textContent = formatBandwidth(in_mbps);
             }
             if (out_mbps > realtimePeaks.out) {
                 realtimePeaks.out = out_mbps;
-                document.getElementById('realtimePeakOut').textContent = out_mbps.toFixed(2) + ' Mbps';
+                document.getElementById('realtimePeakOut').textContent = formatBandwidth(out_mbps);
             }
             
             // Add to chart data
@@ -3756,9 +3756,18 @@ function calc95th(arr) {
                     return;
                 }
                 if (tab === 'realtime') {
-                    document.getElementById('chartContainerDiv').style.display = 'none';
-                    document.getElementById('realtimeUI').style.display = 'block';
-                    startRealtimePolling();
+                    // Buka realtime.html sebagai popup window
+                    const deviceId = currentInterfaceDetail.deviceId || selectedDeviceId;
+                    const ifName = currentInterfaceDetail.interface_name;
+                    const deviceName = document.getElementById('modalDeviceName').textContent || '';
+                    const desc = currentInterfaceDetail.description || '';
+                    const url = `/realtime.html?device=${deviceId}&interface=${encodeURIComponent(ifName)}&device_name=${encodeURIComponent(deviceName)}&description=${encodeURIComponent(desc)}`;
+                    window.open(url, `realtime_${ifName}`, 'width=1400,height=900,resizable=yes,scrollbars=yes');
+                    // Reset tab ke sebelumnya
+                    document.querySelectorAll('.graph-tab-btn').forEach(btn => {
+                        btn.style.background = btn.getAttribute('data-tab') === currentGraphTab ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.05)';
+                        btn.style.color = btn.getAttribute('data-tab') === currentGraphTab ? '#93c5fd' : 'white';
+                    });
                     return;
                 }
                 document.getElementById('chartContainerDiv').style.display = 'block';
@@ -3829,12 +3838,19 @@ function calc95th(arr) {
                         };
                     } else {
                         // PostgreSQL untuk short-term
-                        let hours = 0.5;
-                        if (tab === '6h') hours = 6;
-                        else if (tab === 'daily') hours = 24;
+                        // Fetch window lebih lebar dari display window agar dapat 2+ snapshots
+                        let hours = 6;   // fetch window
+                        let displayHours = 1; // display window
+                        if (tab === '6h') { hours = 8; displayHours = 6; }
+                        else if (tab === 'daily') { hours = 26; displayHours = 24; }
                         const metricsParam = currentChartType === 'errors' ? 'errors' : currentChartType === 'packets' ? 'packets' : 'bandwidth';
                         const res = await fetch(`${API_URL}/interfaces/history?device_id=${deviceId}&interface_name=${encodeURIComponent(interfaceName)}&hours=${hours}&metrics=${metricsParam}`);
                         data = await res.json();
+                        // Filter to display window only
+                        if (data.success && data.data && displayHours) {
+                            const cutoff = new Date(Date.now() - displayHours * 3600 * 1000);
+                            data.data = data.data.filter(d => new Date(d.timestamp) >= cutoff);
+                        }
                     }
 
                     loadingEl.style.display = 'none';
@@ -3879,7 +3895,7 @@ function calc95th(arr) {
                             { label: 'OUT (' + yUnit + ')', data: outData.map(v => v / yDiv), borderColor: '#3b82f6', backgroundColor: gradOut, borderWidth: 2, fill: true, tension: 0.3, pointRadius: ptRadius, pointHoverRadius: 5 }
                         ];
                         if (speedMbps > 0) {
-                            datasets.push({ label: 'Capacity (' + formatBandwidth(speedMbps) + ')', data: new Array(labels.length).fill(speedMbps / yDiv), borderColor: 'rgba(239,68,68,0.4)', borderWidth: 1, borderDash: [8,4], pointRadius: 0, fill: false });
+                            datasets.push({ label: 'Capacity (' + formatBandwidth(speedMbps) + ')', data: new Array(labels.length).fill(speedMbps / yDiv), borderColor: 'rgba(239,68,68,0.4)', borderWidth: 1, borderDash: [8,4], pointRadius: 0, fill: false, hidden: true });
                         }
                         yTitle = 'Bandwidth (' + yUnit + ')';
                         tooltipCb = {
@@ -3952,8 +3968,20 @@ function calc95th(arr) {
                             scales: {
                                 x: {
                                     type: 'time',
-                                    time: { tooltipFormat: 'PPpp', displayFormats: { minute: 'HH:mm', hour: 'HH:mm', day: 'MMM d' } },
-                                    ticks: { color: 'rgba(255,255,255,0.6)', maxRotation: 0, autoSkip: true, maxTicksLimit: 12 },
+                                    time: {
+                                        tooltipFormat: 'dd MMM yyyy HH:mm',
+                                        displayFormats: {
+                                            minute: 'HH:mm',
+                                            hour: 'HH:mm',
+                                            day: 'dd MMM',
+                                            week: 'dd MMM',
+                                            month: 'MMM yyyy',
+                                        }
+                                    },
+                                    ticks: { color: 'rgba(255,255,255,0.6)', maxRotation: 0, autoSkip: true, maxTicksLimit: (() => {
+                                        if (['weekly','monthly','yearly'].includes(currentGraphTab)) return 8;
+                                        return 12;
+                                    })() },
                                     grid: { color: 'rgba(255,255,255,0.05)' }
                                 },
                                 y: {
