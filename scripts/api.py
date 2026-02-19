@@ -818,36 +818,69 @@ def get_devices_status():
     try:
         conn = get_db()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        
-        # Get devices with latest collection timestamp
+        import datetime
+        # Get devices with latest collection + latency timestamps (optimized)
         query = """
-            SELECT 
+            WITH latest_latency AS (
+                SELECT DISTINCT ON (device_id)
+                    device_id, timestamp, packet_loss, rtt_avg
+                FROM latency_results
+                ORDER BY device_id, timestamp DESC
+            ),
+            latest_collection AS (
+                SELECT device_id,
+                    MAX(timestamp) as last_collection,
+                    COUNT(DISTINCT interface_name) as interface_count
+                FROM interface_stats
+                GROUP BY device_id
+            )
+            SELECT
                 d.id, d.hostname, d.ip_address, d.device_type, d.device_category,
                 d.is_active, d.snmp_community,
-                MAX(i.timestamp) as last_collection,
-                COUNT(DISTINCT i.interface_name) as interface_count
+                lc.last_collection,
+                COALESCE(lc.interface_count, 0) as interface_count,
+                ll.timestamp as last_latency,
+                ll.packet_loss as latest_packet_loss,
+                ll.rtt_avg as latest_rtt
             FROM devices d
-            LEFT JOIN interface_stats i ON d.id = i.device_id
-            GROUP BY d.id, d.hostname, d.ip_address, d.device_type, 
-                     d.device_category, d.is_active, d.snmp_community
+            LEFT JOIN latest_collection lc ON d.id = lc.device_id
+            LEFT JOIN latest_latency ll ON d.id = ll.device_id
+            WHERE d.is_active = true
             ORDER BY d.hostname
         """
         cur.execute(query)
         devices = cur.fetchall()
-        
+
         # Add status indicators
         result = []
         for dev in devices:
-            # Calculate time since last collection
-            last_seen = None
+            now = datetime.datetime.utcnow()
+            last_latency = dev['last_latency']
+            last_collection = dev['last_collection']
+
+            latency_age = int((now - last_latency).total_seconds()) if last_latency else None
+            collection_age = int((now - last_collection).total_seconds()) if last_collection else None
+
+            # last_seen = sumber paling fresh
+            candidates = [x for x in [latency_age, collection_age] if x is not None]
+            last_seen = min(candidates) if candidates else None
+
+            # ping_status dari latency (real-time)
+            ping_status = 'unknown'
+            if last_latency and latency_age is not None and latency_age <= 300:
+                loss = float(dev['latest_packet_loss']) if dev['latest_packet_loss'] is not None else None
+                if loss is not None:
+                    if loss == 0: ping_status = 'up'
+                    elif loss < 100: ping_status = 'warning'
+                    else: ping_status = 'down'
+
+            # snmp_status dari interface collection
             snmp_status = 'unknown'
-            import datetime
-            if dev['last_collection']:
-                time_diff = datetime.datetime.now() - dev['last_collection']
-                last_seen = int(time_diff.total_seconds())
-                if last_seen < 600: snmp_status = 'ok'
-                elif last_seen < 3600: snmp_status = 'warning'
+            if collection_age is not None:
+                if collection_age < 7800: snmp_status = 'ok'
+                elif collection_age < 14400: snmp_status = 'warning'
                 else: snmp_status = 'error'
+
             result.append({
                 'id': dev['id'],
                 'hostname': dev['hostname'],
@@ -856,14 +889,14 @@ def get_devices_status():
                 'category': dev['device_category'],
                 'is_active': dev['is_active'],
                 'interface_count': dev['interface_count'] or 0,
-                'last_collection': dev['last_collection'].isoformat() if dev['last_collection'] else None,
+                'last_collection': last_collection.isoformat() if last_collection else None,
+                'last_latency': last_latency.isoformat() if last_latency else None,
                 'last_seen_seconds': last_seen,
-                'snmp_status': snmp_status
+                'ping_status': ping_status,
+                'snmp_status': snmp_status,
+                'latest_rtt': float(dev['latest_rtt']) if dev['latest_rtt'] else None,
+                'latest_packet_loss': float(dev['latest_packet_loss']) if dev['latest_packet_loss'] is not None else None
             })
-        
-        cur.close()
-        conn.close()
-        
         return jsonify({'success': True, 'data': result})
         
     except Exception as e:
