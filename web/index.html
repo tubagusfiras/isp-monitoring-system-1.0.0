@@ -792,11 +792,18 @@
                     <button id="ifViewTopTalkers" onclick="app.switchInterfaceView('top-talkers')" style="padding: 8px 16px; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.7); border: none; cursor: pointer; font-size: 13px;">Top Talkers</button>
                 </div>
 
-                <div id="ifDeviceSelectorWrap">
-                    <label style="margin-right: 8px;">Device:</label>
-                    <select id="interfaceDeviceSelector" onchange="app.loadInterfaces(this.value)" style="padding: 8px; border-radius: 4px; background: rgba(30,41,59,0.95); color: white; border: 1px solid rgba(255,255,255,0.2); min-width: 200px;">
-                        <option value="">-- Select Device --</option>
-                    </select>
+                <div id="ifDeviceSelectorWrap" style="position:relative;">
+                    <button id="ifDeviceListToggle" onclick="app.toggleDeviceList()" style="padding:8px 14px; background:rgba(59,130,246,0.2); border:1px solid rgba(59,130,246,0.4); color:#93c5fd; border-radius:6px; cursor:pointer; font-size:13px; display:flex; align-items:center; gap:6px;">
+                        <span>📡</span><span id="ifDeviceListLabel">Select Device</span><span>▾</span>
+                    </button>
+                    <div id="ifDeviceListPanel" style="display:none; position:absolute; top:40px; left:0; z-index:100; background:rgba(15,23,42,0.98); border:1px solid rgba(255,255,255,0.15); border-radius:8px; width:320px; max-height:400px; box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+                        <div style="padding:10px;">
+                            <input type="text" id="ifDeviceSearchBox" placeholder="🔍 Search device..." oninput="app.filterDeviceList()" style="width:100%; padding:8px 10px; border-radius:6px; background:rgba(255,255,255,0.08); color:white; border:1px solid rgba(255,255,255,0.2); font-size:13px; box-sizing:border-box;">
+                        </div>
+                        <div id="ifDeviceListItems" style="overflow-y:auto; max-height:320px; padding:0 6px 8px;">
+                            <div style="color:rgba(255,255,255,0.4); text-align:center; padding:20px;">Loading...</div>
+                        </div>
+                    </div>
                 </div>
 
                 <div style="flex: 1;">
@@ -3019,17 +3026,87 @@
             let currentChartType = 'bandwidth'; // 'bandwidth' | 'errors' | 'packets'
 
             // loadInterfaceDevices
-async function loadInterfaceDevices() {
+let allInterfaceDevices = [];
+            let selectedDeviceId = null;
+
+            async function loadInterfaceDevices() {
                 try {
                     const res = await fetch(`${API_URL}/devices`);
                     const data = await res.json();
-                    const devices = data.data || [];
-                    const selector = document.getElementById('interfaceDeviceSelector');
-                    selector.innerHTML = '<option value="">-- Select Device --</option>' +
-                        devices.map(d => `<option value="${d.id}">${d.hostname} (${d.ip_address})</option>`).join('');
+                    allInterfaceDevices = data.data || [];
+                    renderDeviceList(allInterfaceDevices);
                 } catch (e) {
                     console.error('Device load error:', e);
                 }
+            }
+
+            function renderDeviceList(devices) {
+                const container = document.getElementById('ifDeviceListItems');
+                if (!devices.length) {
+                    container.innerHTML = '<div style="color:rgba(255,255,255,0.4);text-align:center;padding:20px;">No devices found</div>';
+                    return;
+                }
+                // Group by device_type
+                const groups = {};
+                devices.forEach(d => {
+                    const type = d.device_type || 'unknown';
+                    if (!groups[type]) groups[type] = [];
+                    groups[type].push(d);
+                });
+                let html = '';
+                Object.entries(groups).sort().forEach(([type, devs]) => {
+                    html += `<div style="padding:6px 8px 2px; font-size:10px; color:rgba(255,255,255,0.35); text-transform:uppercase; letter-spacing:1px;">${type.replace('_',' ')}</div>`;
+                    devs.forEach(d => {
+                        const isSelected = d.id == selectedDeviceId;
+                        html += `<div onclick="app.selectDevice(${d.id},'${d.hostname.replace(/'/g,"\'")}')"
+                            style="padding:8px 10px; border-radius:6px; cursor:pointer; margin:1px 0;
+                            background:${isSelected ? 'rgba(59,130,246,0.25)' : 'transparent'};
+                            border:1px solid ${isSelected ? 'rgba(59,130,246,0.5)' : 'transparent'};
+                            transition:all 0.15s;"
+                            onmouseover="this.style.background='rgba(255,255,255,0.07)'"
+                            onmouseout="this.style.background='${isSelected ? 'rgba(59,130,246,0.25)' : 'transparent'}'">
+                            <div style="font-size:13px; color:white; font-weight:${isSelected ? '600' : '400'};">${d.hostname}</div>
+                            <div style="font-size:11px; color:rgba(255,255,255,0.4); font-family:monospace;">${d.ip_address}</div>
+                        </div>`;
+                    });
+                });
+                container.innerHTML = html;
+            }
+
+            function toggleDeviceList() {
+                const panel = document.getElementById('ifDeviceListPanel');
+                const isOpen = panel.style.display !== 'none';
+                panel.style.display = isOpen ? 'none' : 'block';
+                if (!isOpen) {
+                    document.getElementById('ifDeviceSearchBox').focus();
+                    // Close on outside click
+                    setTimeout(() => {
+                        document.addEventListener('click', function closePanel(e) {
+                            if (!document.getElementById('ifDeviceSelectorWrap').contains(e.target)) {
+                                panel.style.display = 'none';
+                                document.removeEventListener('click', closePanel);
+                            }
+                        });
+                    }, 100);
+                }
+            }
+
+            function filterDeviceList() {
+                const q = document.getElementById('ifDeviceSearchBox').value.toLowerCase();
+                const filtered = allInterfaceDevices.filter(d =>
+                    d.hostname.toLowerCase().includes(q) ||
+                    d.ip_address.includes(q) ||
+                    (d.device_type || '').toLowerCase().includes(q)
+                );
+                renderDeviceList(filtered);
+            }
+
+            function selectDevice(deviceId, hostname) {
+                selectedDeviceId = deviceId;
+                document.getElementById('ifDeviceListLabel').textContent = hostname;
+                document.getElementById('ifDeviceListPanel').style.display = 'none';
+                renderDeviceList(allInterfaceDevices);
+                loadInterfaces(deviceId);
             }
 
             // switchInterfaceView
@@ -3239,7 +3316,7 @@ function drawSparkline(canvas, points, color) {
             function openRealtimeWindow(iface, deviceName, event) {
                 if (event) event.stopPropagation();
                 console.log('DEBUG openRealtimeWindow:', { iface, deviceName, event, interface_name: iface.interface_name });
-                const deviceId = iface.device_id || document.getElementById('interfaceDeviceSelector').value;
+                const deviceId = iface.device_id || selectedDeviceId;
                 const interfaceName = iface.interface_name || iface;
                 const desc = iface.description || 'No description';
                 const url = `/realtime.html?device=${deviceId}&interface=${encodeURIComponent(interfaceName)}&device_name=${encodeURIComponent(deviceName)}&description=${encodeURIComponent(desc)}`;
@@ -3287,9 +3364,8 @@ function drawSparkline(canvas, points, color) {
                 }).join('');
 
                 // Add click handlers + draw sparklines
-                const deviceId = document.getElementById('interfaceDeviceSelector').value;
-                const selEl = document.getElementById('interfaceDeviceSelector');
-                const deviceName = selEl.selectedOptions?.[0]?.text || '';
+                const deviceId = selectedDeviceId;
+                const deviceName = document.getElementById('ifDeviceListLabel').textContent || '';
 
                 requestAnimationFrame(() => {
                     document.querySelectorAll('.interface-row').forEach(row => {
@@ -3316,8 +3392,7 @@ function formatBytes(bytes) {
             // refreshInterfaces
 function refreshInterfaces() {
                 if (interfaceViewMode === 'top-talkers') { loadTopTalkers(); return; }
-                const deviceId = document.getElementById('interfaceDeviceSelector').value;
-                if (deviceId) loadInterfaces(deviceId);
+                if (selectedDeviceId) loadInterfaces(selectedDeviceId);
             }
 
             // openInterfaceDetail
@@ -3433,7 +3508,7 @@ async function pollRealtimeData() {
     if (!realtimePolling || !currentInterfaceDetail) return;
     
     try {
-        const deviceId = document.getElementById('interfaceDeviceSelector').value;
+        const deviceId = selectedDeviceId;
         const interfaceName = currentInterfaceDetail.interface_name;
         
         const res = await fetch(`${API_URL}/interfaces/realtime-poll?device_id=${deviceId}&interface_name=${encodeURIComponent(interfaceName)}`);
@@ -3668,7 +3743,7 @@ function calc95th(arr) {
 async function loadInterfaceGraph(tab) {
                 if (!currentInterfaceDetail) return;
 
-                const deviceId = currentInterfaceDetail.deviceId || document.getElementById('interfaceDeviceSelector').value;
+                const deviceId = currentInterfaceDetail.deviceId || selectedDeviceId;
                 const interfaceName = currentInterfaceDetail.interface_name;
                 const chartContainer = document.getElementById('chartContainerDiv');
                 const loadingEl = document.getElementById('graphLoading');
@@ -4322,7 +4397,7 @@ async function loadInterfaceGraph(tab) {
             }
 
             return {
-                switchTab, loadDashboard, loadDeviceCards, renderDeviceLatencyChart, collectSingleDevice, testDeviceSNMP, filterDeviceMonitoring, renderMonitorTable, sortMonitorDevices, loadTopology, loadAnomalies, searchAnomalies, triggerCollection, pollCollectionStatus, cancelCollection,
+                switchTab, loadDashboard, loadDeviceCards, renderDeviceLatencyChart, collectSingleDevice, testDeviceSNMP, filterDeviceMonitoring, renderMonitorTable, sortMonitorDevices, loadTopology, loadAnomalies, searchAnomalies, triggerCollection, pollCollectionStatus, cancelCollection, toggleDeviceList, filterDeviceList, selectDevice,
                 loadManageDevices, filterDeviceCategory, renderDeviceTable, openAddModal, closeModal, editDevice, deleteDevice, saveDevice,
                 openDeviceDetail, closeDetailModal, changeTimeRange, refreshData,
                 loadIPConflicts, loadInterfaceDevices, loadInterfaces, searchInterfaces, filterInterfaces, sortInterfaces, refreshInterfaces, openInterfaceDetail, closeInterfaceModal, openRealtimeWindow, switchGraphTab, startRealtimePolling, stopRealtimePolling, changeRealtimeInterval, changeRealtimeWindow, switchChartType, switchInterfaceView, toggleGraphAutoRefresh, updateInterfaceStats, formatBytes, formatBandwidth, renderInterfaceTable, searchIPInventory, resolveConflict, runIPScan,
