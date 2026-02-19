@@ -11,6 +11,7 @@ import rrdtool
 import os
 import time
 from pathlib import Path
+from datetime import timezone
 
 RRD_DIR = '/opt/isp-monitoring/rrd'
 
@@ -22,38 +23,38 @@ def get_rrd_path(device_id, interface_name):
     os.makedirs(device_dir, exist_ok=True)
     return os.path.join(device_dir, f"{safe_name}.rrd")
 
-def create_rrd(device_id, interface_name, step=300):
-    """Create RRD file for an interface"""
+def create_rrd(device_id, interface_name, step=7200):
+    """Create RRD file for an interface
+    Step 7200s = 2 hours (matches collection interval)
+    """
     path = get_rrd_path(device_id, interface_name)
     if os.path.exists(path):
         return path
+
+    heartbeat = step * 3  # 3x step = 6 jam max gap
 
     rrdtool.create(
         path,
         '--step', str(step),
         '--start', '0',
 
-        # Data Sources
-        'DS:in_octets:COUNTER:600:0:U',   # In bytes (counter, max gap 600s)
-        'DS:out_octets:COUNTER:600:0:U',  # Out bytes
-        'DS:in_errors:GAUGE:600:0:U',     # In errors
-        'DS:out_errors:GAUGE:600:0:U',    # Out errors
+        # Data Sources — GAUGE karena kita pre-calculate bps
+        f'DS:in_bps:GAUGE:{heartbeat}:0:U',
+        f'DS:out_bps:GAUGE:{heartbeat}:0:U',
+        f'DS:in_errors:GAUGE:{heartbeat}:0:U',
+        f'DS:out_errors:GAUGE:{heartbeat}:0:U',
 
-        # RRA: 5min avg → 1 day (288 points)
-        'RRA:AVERAGE:0.5:1:288',
-        'RRA:MAX:0.5:1:288',
+        # RRA: 2hr resolution → 1 week (84 points)
+        'RRA:AVERAGE:0.5:1:84',
+        'RRA:MAX:0.5:1:84',
 
-        # RRA: 30min avg → 1 week (336 points)
-        'RRA:AVERAGE:0.5:6:336',
-        'RRA:MAX:0.5:6:336',
+        # RRA: 6hr resolution → 1 month (120 points)
+        'RRA:AVERAGE:0.5:3:120',
+        'RRA:MAX:0.5:3:120',
 
-        # RRA: 2hr avg → 1 month (360 points)
-        'RRA:AVERAGE:0.5:24:360',
-        'RRA:MAX:0.5:24:360',
-
-        # RRA: 1day avg → 1 year (365 points)
-        'RRA:AVERAGE:0.5:288:365',
-        'RRA:MAX:0.5:288:365',
+        # RRA: 1day resolution → 1 year (365 points)
+        'RRA:AVERAGE:0.5:12:365',
+        'RRA:MAX:0.5:12:365',
     )
     return path
 
@@ -64,7 +65,17 @@ def update_rrd(device_id, interface_name, timestamp, in_octets, out_octets, in_e
         if not os.path.exists(path):
             create_rrd(device_id, interface_name)
 
-        ts = int(timestamp.timestamp()) if hasattr(timestamp, 'timestamp') else int(timestamp)
+        # Pakai time.time() style — avoid utcnow().timestamp() bug
+        if hasattr(timestamp, 'timestamp'):
+            # datetime object — convert properly
+            if timestamp.tzinfo is None:
+                # naive datetime — assume UTC, use time.time() offset trick
+                import calendar
+                ts = calendar.timegm(timestamp.timetuple())
+            else:
+                ts = int(timestamp.timestamp())
+        else:
+            ts = int(timestamp)
         rrdtool.update(
             path,
             f"{ts}:{in_octets}:{out_octets}:{in_errors}:{out_errors}"
@@ -101,16 +112,16 @@ def fetch_rrd(device_id, interface_name, timerange='24h'):
         ds_names = result[1]
         rows = result[2]
 
-        in_idx = ds_names.index('in_octets')
-        out_idx = ds_names.index('out_octets')
+        in_idx = ds_names.index('in_bps')
+        out_idx = ds_names.index('out_bps')
 
         points = []
         ts = start_ts
         for row in rows:
             if row[in_idx] is not None and row[out_idx] is not None:
                 # Convert bytes/sec to Mbps
-                in_mbps = round(row[in_idx] * 8 / 1_000_000, 3)
-                out_mbps = round(row[out_idx] * 8 / 1_000_000, 3)
+                in_mbps = round(row[in_idx] / 1_000_000, 3)
+                out_mbps = round(row[out_idx] / 1_000_000, 3)
                 points.append({'ts': ts * 1000, 'in': in_mbps, 'out': out_mbps})
             else:
                 # Include null for gaps — Chart.js will show gap in line
@@ -143,15 +154,15 @@ def fetch_rrd_custom(device_id, interface_name, start_ts, end_ts):
         ds_names = result[1]
         rows = result[2]
 
-        in_idx = ds_names.index('in_octets')
-        out_idx = ds_names.index('out_octets')
+        in_idx = ds_names.index('in_bps')
+        out_idx = ds_names.index('out_bps')
 
         points = []
         ts = start_r
         for row in rows:
             if row[in_idx] is not None and row[out_idx] is not None:
-                in_mbps = round(row[in_idx] * 8 / 1_000_000, 3)
-                out_mbps = round(row[out_idx] * 8 / 1_000_000, 3)
+                in_mbps = round(row[in_idx] / 1_000_000, 3)
+                out_mbps = round(row[out_idx] / 1_000_000, 3)
                 points.append({'ts': ts * 1000, 'in': in_mbps, 'out': out_mbps})
             else:
                 points.append({'ts': ts * 1000, 'in': None, 'out': None})

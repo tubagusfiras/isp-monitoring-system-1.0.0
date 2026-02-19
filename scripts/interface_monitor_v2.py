@@ -310,12 +310,46 @@ def collect_interface_stats(device):
                 ))
                 saved += 1
 
-                # Dual-write ke RRD
+                # Dual-write ke RRD — hitung rate dari delta counter via JSON cache
                 try:
-                    from scripts.rrd_manager import update_rrd
+                    from scripts.rrd_manager import update_rrd, get_rrd_path, create_rrd
+                    import os, time, json
                     from datetime import datetime as dt
-                    update_rrd(device_id, if_name, dt.now(), in_oct, out_oct, in_err, out_err)
-                except Exception:
+
+                    now_ts = int(time.time())
+                    rrd_path = get_rrd_path(device_id, if_name)
+                    cache_dir = '/opt/isp-monitoring/rrd/cache'
+                    os.makedirs(cache_dir, exist_ok=True)
+                    safe_name = if_name.replace('/', '_').replace(' ', '_')
+                    cache_file = f'{cache_dir}/{device_id}_{safe_name}.json'
+
+                    if not os.path.exists(rrd_path):
+                        create_rrd(device_id, if_name)
+
+                    # Load previous counter from cache
+                    prev = None
+                    if os.path.exists(cache_file):
+                        with open(cache_file, 'r') as cf:
+                            prev = json.load(cf)
+
+                    # Save current counter to cache
+                    with open(cache_file, 'w') as cf:
+                        json.dump({'ts': now_ts, 'in': in_oct, 'out': out_oct}, cf)
+
+                    # Calculate rate if we have previous data
+                    if prev:
+                        time_diff = now_ts - prev['ts']
+                        if time_diff >= 30:
+                            in_delta = in_oct - prev['in']
+                            out_delta = out_oct - prev['out']
+                            if in_delta < 0: in_delta += 2**64
+                            if out_delta < 0: out_delta += 2**64
+                            max_bytes = 800_000_000_000 / 8 * time_diff
+                            if in_delta <= max_bytes and out_delta <= max_bytes:
+                                in_bps = in_delta * 8 / time_diff
+                                out_bps = out_delta * 8 / time_diff
+                                update_rrd(device_id, if_name, dt.utcnow(), in_bps, out_bps, in_err, out_err)
+                except Exception as rrd_err:
                     pass
 
             except Exception:

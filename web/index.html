@@ -1627,8 +1627,8 @@
                         case 'hostname': va = a.hostname.toLowerCase(); vb = b.hostname.toLowerCase(); break;
                         case 'ip': va = a.ip_address.split('.').map(n => n.padStart(3,'0')).join('.'); vb = b.ip_address.split('.').map(n => n.padStart(3,'0')).join('.'); break;
                         case 'type': va = (a.device_type||'').toLowerCase(); vb = (b.device_type||'').toLowerCase(); break;
-                        case 'latency': va = a.latency?.rtt_avg ?? 9999; vb = b.latency?.rtt_avg ?? 9999; break;
-                        case 'loss': va = a.latency?.packet_loss ?? 9999; vb = b.latency?.packet_loss ?? 9999; break;
+                        case 'latency': va = a.latest_rtt ?? 9999; vb = b.latest_rtt ?? 9999; break;
+                        case 'loss': va = a.latest_packet_loss ?? 9999; vb = b.latest_packet_loss ?? 9999; break;
                         case 'seen': va = a.last_seen_seconds ?? 999999; vb = b.last_seen_seconds ?? 999999; break;
                         default: va = 0; vb = 0;
                     }
@@ -4581,7 +4581,6 @@ function calc95th(arr) {
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <div style="width: 10px; height: 10px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite;"></div>
                         <span style="font-weight: 600; font-size: 15px;">🤖 AI Network Assistant</span>
-                        <span style="font-size: 12px; color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 10px;">Powered by Groq</span>
                     </div>
                     <button onclick="window.clearAIChat()" style="padding: 6px 12px; background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; cursor: pointer; font-size: 12px;">🗑️ Clear Chat</button>
                 </div>
