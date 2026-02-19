@@ -715,7 +715,7 @@ def get_interface_bandwidth():
                 SELECT *,
                     ROW_NUMBER() OVER (PARTITION BY interface_name ORDER BY timestamp DESC) as rn
                 FROM interface_stats
-                WHERE device_id = %s AND timestamp > NOW() - INTERVAL '30 minutes'
+                WHERE device_id = %s AND timestamp > NOW() - INTERVAL '3 hours'
             )
             SELECT * FROM ranked WHERE rn <= 2 ORDER BY interface_name, timestamp DESC
         """
@@ -743,8 +743,8 @@ def get_interface_bandwidth():
             # Calculate time difference in seconds
             time_diff = (current['timestamp'] - previous['timestamp']).total_seconds()
 
-            # Skip if interval is too short (<30s) or too long (>1800s)
-            if time_diff <= 30 or time_diff > 1800:
+            # Skip if interval is too short (<30s) or too long (>4 hours)
+            if time_diff <= 30 or time_diff > 14400:
                 i += 2
                 continue
 
