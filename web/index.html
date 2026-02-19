@@ -3958,7 +3958,20 @@ function calc95th(arr) {
                                 },
                                 y: {
                                     beginAtZero: true,
-                                    ticks: { color: 'rgba(255,255,255,0.6)' },
+                                    suggestedMax: (() => {
+                                        if (currentChartType === 'bandwidth') {
+                                            const maxVal = Math.max(...datasets.filter(d=>!d.borderDash).flatMap(d=>d.data), 0.001);
+                                            return maxVal * 1.15; // 15% headroom
+                                        }
+                                        return undefined;
+                                    })(),
+                                    ticks: {
+                                        color: 'rgba(255,255,255,0.6)',
+                                        callback: function(value) {
+                                            if (currentChartType === 'bandwidth') return value.toFixed(2);
+                                            return value;
+                                        }
+                                    },
                                     grid: { color: 'rgba(255,255,255,0.05)' },
                                     title: { display: true, text: yTitle, color: 'rgba(255,255,255,0.6)' }
                                 }

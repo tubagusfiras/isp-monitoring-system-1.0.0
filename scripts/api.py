@@ -222,18 +222,19 @@ def get_stats():
         
         cur.execute("SELECT COUNT(*) as total FROM devices WHERE is_active = true")
         total = cur.fetchone()['total']
-        
         cur.execute("""
             SELECT COUNT(*) as healthy
             FROM latency_results lr
-            JOIN (SELECT device_id, MAX(timestamp) as max_ts 
+            JOIN (SELECT device_id, MAX(timestamp) as max_ts
                   FROM latency_results GROUP BY device_id) latest
             ON lr.device_id = latest.device_id AND lr.timestamp = latest.max_ts
+            JOIN devices d ON d.id = lr.device_id AND d.is_active = true
             WHERE lr.packet_loss < 5 AND lr.rtt_avg < 100
+            AND lr.timestamp > NOW() - INTERVAL '10 minutes'
         """)
         healthy = cur.fetchone()['healthy']
         
-        cur.execute("SELECT COUNT(*) as up FROM latency_results WHERE timestamp > NOW() - INTERVAL '5 minutes' AND rtt_avg > 0")
+        cur.execute("SELECT COUNT(DISTINCT device_id) as up FROM latency_results WHERE timestamp > NOW() - INTERVAL '5 minutes' AND packet_loss < 100")
         up = cur.fetchone()['up']
         
         cur.execute("SELECT COUNT(*) as anomalies FROM anomalies WHERE detected_at > NOW() - INTERVAL '24 hours'")
