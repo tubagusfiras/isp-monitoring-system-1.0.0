@@ -3832,10 +3832,12 @@ function calc95th(arr) {
                             speed_mbps: rrdData.speed_mbps,
                             data: (rrdData.data || []).map(p => ({
                                 timestamp: new Date(p.ts).toISOString(),
-                                in_mbps: p.in,
+                                in_mbps: p.in,   // null values preserved for gap handling
                                 out_mbps: p.out
-                            }))
+                            })).filter(p => p.in_mbps !== null) // remove nulls after trim
                         };
+                        // If still empty after filter, show message
+                        if (data.data.length === 0) data.success = true;
                     } else {
                         // PostgreSQL untuk short-term
                         // Fetch window lebih lebar dari display window agar dapat 2+ snapshots
