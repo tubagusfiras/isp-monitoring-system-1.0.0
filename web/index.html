@@ -947,11 +947,39 @@
 
                 <!-- Time tabs + Chart type + Auto-refresh -->
                 <div style="margin-bottom: 15px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
-                    <button class="graph-tab-btn active" data-tab="recent" onclick="app.switchGraphTab('recent')" style="background: rgba(255,255,255,0.1); border: none; color: white; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;">30m</button>
-                    <button class="graph-tab-btn" data-tab="realtime" onclick="app.switchGraphTab('realtime')" style="background: rgba(255,255,255,0.05); border: none; color: white; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;">⚡ Realtime</button>
-                    <button class="graph-tab-btn" data-tab="daily" onclick="app.switchGraphTab('daily')" style="background: rgba(255,255,255,0.05); border: none; color: white; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;">24h</button>
-                    <button class="graph-tab-btn" data-tab="weekly" onclick="app.switchGraphTab('weekly')" style="background: rgba(255,255,255,0.05); border: none; color: white; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;">7d</button>
-                    <button class="graph-tab-btn" data-tab="monthly" onclick="app.switchGraphTab('monthly')" style="background: rgba(255,255,255,0.05); border: none; color: white; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;">30d</button>
+                    <button class="graph-tab-btn active" data-tab="recent" onclick="app.switchGraphTab('recent')" style="background:rgba(255,255,255,0.1);border:none;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">30m</button>
+                    <button class="graph-tab-btn" data-tab="6h" onclick="app.switchGraphTab('6h')" style="background:rgba(255,255,255,0.05);border:none;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">6h</button>
+                    <button class="graph-tab-btn" data-tab="daily" onclick="app.switchGraphTab('daily')" style="background:rgba(255,255,255,0.05);border:none;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">24h</button>
+                    <button class="graph-tab-btn" data-tab="weekly" onclick="app.switchGraphTab('weekly')" style="background:rgba(255,255,255,0.05);border:none;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">7d</button>
+                    <button class="graph-tab-btn" data-tab="monthly" onclick="app.switchGraphTab('monthly')" style="background:rgba(255,255,255,0.05);border:none;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">30d</button>
+                    <button class="graph-tab-btn" data-tab="yearly" onclick="app.switchGraphTab('yearly')" style="background:rgba(255,255,255,0.05);border:none;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">1y</button>
+                    <button class="graph-tab-btn" data-tab="custom" onclick="app.switchGraphTab('custom')" style="background:rgba(255,255,255,0.05);border:none;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">📅 Custom</button>
+                    <button class="graph-tab-btn" data-tab="realtime" onclick="app.switchGraphTab('realtime')" style="background:rgba(255,255,255,0.05);border:none;color:rgba(255,200,0,0.9);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">⚡ Live</button>
+                    <!-- Custom date range picker (hidden by default) -->
+                    <div id="customDateRangePicker" style="display:none;position:absolute;top:50px;left:0;z-index:200;background:rgba(15,23,42,0.98);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,0.6);min-width:300px;">
+                        <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-bottom:12px;">📅 Custom Date Range</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+                            <div>
+                                <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:4px;">Start</div>
+                                <input type="datetime-local" id="customRangeStart" style="width:100%;padding:7px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:white;font-size:12px;box-sizing:border-box;">
+                            </div>
+                            <div>
+                                <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:4px;">End</div>
+                                <input type="datetime-local" id="customRangeEnd" style="width:100%;padding:7px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:white;font-size:12px;box-sizing:border-box;">
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                            <button onclick="app.setQuickRange(1)" style="padding:4px 10px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:white;font-size:11px;cursor:pointer;">Last 1d</button>
+                            <button onclick="app.setQuickRange(3)" style="padding:4px 10px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:white;font-size:11px;cursor:pointer;">Last 3d</button>
+                            <button onclick="app.setQuickRange(7)" style="padding:4px 10px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:white;font-size:11px;cursor:pointer;">Last 7d</button>
+                            <button onclick="app.setQuickRange(14)" style="padding:4px 10px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:white;font-size:11px;cursor:pointer;">Last 14d</button>
+                            <button onclick="app.setQuickRange(30)" style="padding:4px 10px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:white;font-size:11px;cursor:pointer;">Last 30d</button>
+                        </div>
+                        <div style="display:flex;gap:8px;justify-content:flex-end;">
+                            <button onclick="app.closeCustomPicker()" style="padding:6px 14px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:white;font-size:12px;cursor:pointer;">Cancel</button>
+                            <button onclick="app.applyCustomRange()" style="padding:6px 14px;background:rgba(59,130,246,0.3);border:1px solid rgba(59,130,246,0.5);border-radius:6px;color:#93c5fd;font-size:12px;cursor:pointer;font-weight:600;">Apply</button>
+                        </div>
+                    </div>
 
                     <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.15); margin: 0 4px;"></div>
 
@@ -3370,7 +3398,7 @@ function drawSparkline(canvas, points, color) {
                 requestAnimationFrame(() => {
                     document.querySelectorAll('.interface-row').forEach(row => {
                         const idx = parseInt(row.getAttribute('data-idx'));
-                        row.onclick = (e) => openRealtimeWindow(filteredInterfaces[idx], deviceName, e);
+                        row.onclick = (e) => openInterfaceDetail(filteredInterfaces[idx], deviceName, selectedDeviceId);
                     });
                     document.querySelectorAll('.if-sparkline').forEach(canvas => {
                         const ifName = canvas.getAttribute('data-if');
@@ -3450,26 +3478,6 @@ let realtimeWindow = 300; // seconds
 let realtimeData = { labels: [], inData: [], outData: [] };
 let realtimeChart = null;
 let realtimePeaks = { in: 0, out: 0 };
-
-function switchGraphTab(tab) {
-    // Update button styles
-    document.querySelectorAll('.graph-tab-btn').forEach(btn => {
-        btn.style.background = 'rgba(255,255,255,0.05)';
-    });
-    event.target.style.background = 'rgba(255,255,255,0.1)';
-
-    // Show/hide appropriate containers
-    if (tab === 'realtime') {
-        document.getElementById('chartContainerDiv').style.display = 'none';
-        document.getElementById('realtimeUI').style.display = 'block';
-        startRealtimePolling();
-    } else {
-        document.getElementById('chartContainerDiv').style.display = 'block';
-        document.getElementById('realtimeUI').style.display = 'none';
-        stopRealtimePolling();
-        loadInterfaceGraph(tab);
-    }
-}
 
 function startRealtimePolling() {
     if (!currentInterfaceDetail) return;
@@ -3706,14 +3714,7 @@ function toggleGraphAutoRefresh() {
                 }
             }
 
-            // switchGraphTab
-function switchGraphTab(tab) {
-                currentGraphTab = tab;
-                document.querySelectorAll('.graph-tab-btn').forEach(btn => {
-                    btn.style.background = btn.getAttribute('data-tab') === tab ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)';
-                });
-                loadInterfaceGraph(tab);
-            }
+
 
             // switchChartType
 function switchChartType(ctype) {
@@ -3740,7 +3741,55 @@ function calc95th(arr) {
             }
 
             // loadInterfaceGraph - supports bandwidth/errors/packets chart types
-async function loadInterfaceGraph(tab) {
+// Custom range state
+            let customRangeStartTs = null;
+            let customRangeEndTs = null;
+
+            function switchGraphTab(tab) {
+                currentGraphTab = tab;
+                document.querySelectorAll('.graph-tab-btn').forEach(btn => {
+                    btn.style.background = btn.getAttribute('data-tab') === tab ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.05)';
+                    btn.style.color = btn.getAttribute('data-tab') === tab ? '#93c5fd' : 'white';
+                });
+                if (tab === 'custom') {
+                    document.getElementById('customDateRangePicker').style.display = 'block';
+                    return;
+                }
+                if (tab === 'realtime') {
+                    document.getElementById('chartContainerDiv').style.display = 'none';
+                    document.getElementById('realtimeUI').style.display = 'block';
+                    startRealtimePolling();
+                    return;
+                }
+                document.getElementById('chartContainerDiv').style.display = 'block';
+                document.getElementById('realtimeUI').style.display = 'none';
+                document.getElementById('customDateRangePicker').style.display = 'none';
+                stopRealtimePolling();
+                loadInterfaceGraph(tab);
+            }
+
+            function setQuickRange(days) {
+                const end = new Date();
+                const start = new Date(end - days * 86400 * 1000);
+                document.getElementById('customRangeStart').value = start.toISOString().slice(0,16);
+                document.getElementById('customRangeEnd').value = end.toISOString().slice(0,16);
+            }
+
+            function closeCustomPicker() {
+                document.getElementById('customDateRangePicker').style.display = 'none';
+            }
+
+            function applyCustomRange() {
+                const startVal = document.getElementById('customRangeStart').value;
+                const endVal = document.getElementById('customRangeEnd').value;
+                if (!startVal || !endVal) { alert('Please select start and end date'); return; }
+                customRangeStartTs = new Date(startVal).getTime() / 1000;
+                customRangeEndTs = new Date(endVal).getTime() / 1000;
+                closeCustomPicker();
+                loadInterfaceGraph('custom');
+            }
+
+            async function loadInterfaceGraph(tab) {
                 if (!currentInterfaceDetail) return;
 
                 const deviceId = currentInterfaceDetail.deviceId || selectedDeviceId;
@@ -3752,18 +3801,41 @@ async function loadInterfaceGraph(tab) {
                 loadingEl.style.display = 'block';
                 chartContainer.style.display = 'none';
 
+                // Route ke RRD atau PostgreSQL based on timerange
+                const useRRD = ['weekly','monthly','yearly','custom'].includes(tab);
+
                 try {
-                    let hours = 0.5;
-                    if (tab === 'realtime') hours = 1;
-                    else if (tab === 'daily') hours = 24;
-                    else if (tab === 'weekly') hours = 168;
-                    else if (tab === 'monthly') hours = 720;
-
-                    // Determine which metrics to fetch based on chart type
-                    const metricsParam = currentChartType === 'bandwidth' ? 'bandwidth' : currentChartType === 'errors' ? 'errors' : currentChartType === 'packets' ? 'packets' : 'all';
-
-                    const res = await fetch(`${API_URL}/interfaces/history?device_id=${deviceId}&interface_name=${encodeURIComponent(interfaceName)}&hours=${hours}&metrics=${metricsParam}`);
-                    const data = await res.json();
+                    let data;
+                    if (useRRD) {
+                        // RRD untuk long-term
+                        let url;
+                        if (tab === 'custom' && customRangeStartTs && customRangeEndTs) {
+                            url = `${API_URL}/interfaces/rrd-history?device_id=${deviceId}&interface_name=${encodeURIComponent(interfaceName)}&start_ts=${customRangeStartTs}&end_ts=${customRangeEndTs}`;
+                        } else {
+                            const rrdMap = { weekly: '7d', monthly: '30d', yearly: '1y' };
+                            url = `${API_URL}/interfaces/rrd-history?device_id=${deviceId}&interface_name=${encodeURIComponent(interfaceName)}&timerange=${rrdMap[tab]}`;
+                        }
+                        const res = await fetch(url);
+                        const rrdData = await res.json();
+                        // Convert RRD format to history format
+                        data = {
+                            success: rrdData.success,
+                            speed_mbps: rrdData.speed_mbps,
+                            data: (rrdData.data || []).map(p => ({
+                                timestamp: new Date(p.ts).toISOString(),
+                                in_mbps: p.in,
+                                out_mbps: p.out
+                            }))
+                        };
+                    } else {
+                        // PostgreSQL untuk short-term
+                        let hours = 0.5;
+                        if (tab === '6h') hours = 6;
+                        else if (tab === 'daily') hours = 24;
+                        const metricsParam = currentChartType === 'errors' ? 'errors' : currentChartType === 'packets' ? 'packets' : 'bandwidth';
+                        const res = await fetch(`${API_URL}/interfaces/history?device_id=${deviceId}&interface_name=${encodeURIComponent(interfaceName)}&hours=${hours}&metrics=${metricsParam}`);
+                        data = await res.json();
+                    }
 
                     loadingEl.style.display = 'none';
                     chartContainer.style.display = 'block';
@@ -4397,7 +4469,7 @@ async function loadInterfaceGraph(tab) {
             }
 
             return {
-                switchTab, loadDashboard, loadDeviceCards, renderDeviceLatencyChart, collectSingleDevice, testDeviceSNMP, filterDeviceMonitoring, renderMonitorTable, sortMonitorDevices, loadTopology, loadAnomalies, searchAnomalies, triggerCollection, pollCollectionStatus, cancelCollection, toggleDeviceList, filterDeviceList, selectDevice,
+                switchTab, loadDashboard, loadDeviceCards, renderDeviceLatencyChart, collectSingleDevice, testDeviceSNMP, filterDeviceMonitoring, renderMonitorTable, sortMonitorDevices, loadTopology, loadAnomalies, searchAnomalies, triggerCollection, pollCollectionStatus, cancelCollection, toggleDeviceList, filterDeviceList, selectDevice, setQuickRange, closeCustomPicker, applyCustomRange,
                 loadManageDevices, filterDeviceCategory, renderDeviceTable, openAddModal, closeModal, editDevice, deleteDevice, saveDevice,
                 openDeviceDetail, closeDetailModal, changeTimeRange, refreshData,
                 loadIPConflicts, loadInterfaceDevices, loadInterfaces, searchInterfaces, filterInterfaces, sortInterfaces, refreshInterfaces, openInterfaceDetail, closeInterfaceModal, openRealtimeWindow, switchGraphTab, startRealtimePolling, stopRealtimePolling, changeRealtimeInterval, changeRealtimeWindow, switchChartType, switchInterfaceView, toggleGraphAutoRefresh, updateInterfaceStats, formatBytes, formatBandwidth, renderInterfaceTable, searchIPInventory, resolveConflict, runIPScan,

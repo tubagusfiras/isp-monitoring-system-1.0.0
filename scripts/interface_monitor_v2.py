@@ -284,6 +284,11 @@ def collect_interface_stats(device):
                     parent_name = if_name.split('.')[0]  # ae14.1234 → ae14
                     desc = parent_ae_desc.get(parent_name, '')
 
+                in_oct = safe_int(in_octets.get(idx))
+                out_oct = safe_int(out_octets.get(idx))
+                in_err = safe_int(in_errors.get(idx))
+                out_err = safe_int(out_errors.get(idx))
+
                 cur.execute("""
                     INSERT INTO interface_stats
                     (device_id, interface_name, interface_index, admin_status, oper_status,
@@ -296,23 +301,30 @@ def collect_interface_stats(device):
                     STATUS_MAP.get(oper_status.get(idx, '2'), 'down'),
                     accurate_speed,
                     desc,
-                    safe_int(in_octets.get(idx)),
-                    safe_int(out_octets.get(idx)),
+                    in_oct, out_oct,
                     safe_int(in_packets.get(idx)),
                     safe_int(out_packets.get(idx)),
-                    safe_int(in_errors.get(idx)),
-                    safe_int(out_errors.get(idx)),
+                    in_err, out_err,
                     safe_int(in_discards.get(idx)),
                     safe_int(out_discards.get(idx))
                 ))
                 saved += 1
+
+                # Dual-write ke RRD
+                try:
+                    from scripts.rrd_manager import update_rrd
+                    from datetime import datetime as dt
+                    update_rrd(device_id, if_name, dt.now(), in_oct, out_oct, in_err, out_err)
+                except Exception:
+                    pass
+
             except Exception:
                 pass
-        
+
         conn.commit()
         cur.close()
         conn.close()
-        
+
         return {'success': True, 'hostname': hostname, 'interfaces': saved}
         
     except Exception as e:

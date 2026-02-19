@@ -1326,6 +1326,63 @@ def get_interface_history():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+
+@app.route('/api/interfaces/rrd-history', methods=['GET'])
+def get_rrd_history():
+    """Get RRD historical data for an interface
+    Query params:
+      - device_id, interface_name (required)
+      - timerange: 1h|6h|24h|7d|30d|1y (default: 24h)
+      - start_ts, end_ts: unix timestamps for custom range
+    """
+    try:
+        device_id = request.args.get('device_id')
+        interface_name = request.args.get('interface_name')
+        timerange = request.args.get('timerange', '24h')
+        start_ts = request.args.get('start_ts')
+        end_ts = request.args.get('end_ts')
+
+        if not device_id or not interface_name:
+            return jsonify({'success': False, 'error': 'device_id and interface_name required'}), 400
+
+        import sys
+        sys.path.insert(0, '/opt/isp-monitoring')
+        from scripts.rrd_manager import fetch_rrd, fetch_rrd_custom, get_rrd_path
+        import os
+
+        # Check RRD file exists
+        rrd_path = get_rrd_path(int(device_id), interface_name)
+        if not os.path.exists(rrd_path):
+            return jsonify({'success': False, 'error': 'No RRD data yet for this interface', 'data': []})
+
+        # Fetch data
+        if start_ts and end_ts:
+            points = fetch_rrd_custom(int(device_id), interface_name, float(start_ts), float(end_ts))
+        else:
+            points = fetch_rrd(int(device_id), interface_name, timerange)
+
+        # Get interface speed from DB for utilization calc
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""SELECT speed FROM interface_stats
+            WHERE device_id=%s AND interface_name=%s
+            ORDER BY timestamp DESC LIMIT 1""", (device_id, interface_name))
+        row = cur.fetchone()
+        cur.close(); conn.close()
+
+        raw_speed = (row['speed'] or 0) if row else 0
+        speed_mbps = 0 if raw_speed == 4294967295 else round(raw_speed / 1_000_000, 0)
+
+        return jsonify({
+            'success': True,
+            'data': points,
+            'speed_mbps': speed_mbps,
+            'timerange': timerange,
+            'points': len(points)
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/interfaces/top-talkers', methods=['GET'])
 def get_top_talkers():
     """Get top bandwidth consumers across all devices"""
