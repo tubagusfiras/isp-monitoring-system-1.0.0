@@ -1480,29 +1480,11 @@
                 if (btn) { btn.disabled = true; btn.textContent = '⏳ Loading...'; }
                 tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;"><div style="color:rgba(255,255,255,0.5);">🔄 Loading devices...</div></td></tr>';
                 try {
-                    const [statusRes, latencyRes] = await Promise.all([
-                        fetch(`${API_URL}/devices/status`, {credentials:'include'}),
-                        fetch(`${API_URL}/latency/latest`, {credentials:'include'})
-                    ]);
-                    
+                    const statusRes = await fetch(`${API_URL}/devices/status`, {credentials:'include'});
                     const statusData = await statusRes.json();
-                    const latencyData = await latencyRes.json();
-                    
                     if (!statusData.success) throw new Error('Failed to load device status');
-                    
                     const devices = statusData.data;
-                    const latency = latencyData.data || [];
-                    
-                    // Create latency map
-                    const latencyMap = {};
-                    latency.forEach(l => {
-                        latencyMap[l.device_id] = l;
-                    });
-                    
-                    // Merge data
-                    devices.forEach(d => {
-                        d.latency = latencyMap[d.id] || null;
-                    });
+
                     
                     allDevices = devices;
                     
@@ -1554,11 +1536,10 @@
             }
             
             function getDeviceStatus(d) {
-                const lat = d.latency;
-                if (!lat) return 'unknown';
-                if (lat.packet_loss >= 100) return 'down';
-                if (lat.packet_loss > 5 || (lat.rtt_avg != null && lat.rtt_avg > 100)) return 'warning';
-                return 'up';
+                if (d.ping_status === 'up') return 'up';
+                if (d.ping_status === 'down') return 'down';
+                if (d.ping_status === 'warning') return 'warning';
+                return 'unknown';
             }
 
             function sortMonitorDevices(col) {
@@ -1642,9 +1623,8 @@
 
                 // Render rows
                 tbody.innerHTML = devices.map(d => {
-                    const lat = d.latency;
-                    const rtt = lat?.rtt_avg;
-                    const loss = lat?.packet_loss;
+                    const rtt = d.latest_rtt;
+                    const loss = d.latest_packet_loss;
 
                     const dotClass = { up: 'up', warning: 'warning', down: 'down', unknown: 'unknown' }[d._status];
 
