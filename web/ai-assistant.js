@@ -253,18 +253,39 @@
     function getSuggestedPrompts() {
         return [
             'Bagaimana status jaringan saat ini?',
-            'Device mana yang bermasalah?',
-            'Tampilkan anomali aktif',
-            'Berapa rata-rata latency jaringan?',
-            'Device mana yang memiliki packet loss tinggi?',
+            'Device mana yang down atau bermasalah?',
+            'Tampilkan anomali aktif 24 jam terakhir',
+            'Device mana yang packet loss tinggi?',
+            'Interface mana yang utilisasi paling tinggi?',
+            'Bagaimana performa server monitoring?',
+            'Ada IP conflict yang perlu diperhatikan?',
+            'Rangkum kondisi jaringan untuk laporan',
         ];
     }
 
     function formatAIResponse(text) {
-        return text
+        let html = text
+            // Code blocks
+            .replace(/```([\s\S]*?)```/g, '<pre style="background:rgba(0,0,0,0.3);padding:10px;border-radius:6px;overflow-x:auto;font-family:monospace;font-size:12px;margin:8px 0;">$1</pre>')
+            // Inline code
+            .replace(/`([^`]+)`/g, '<code style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;font-family:monospace;font-size:12px;">$1</code>')
+            // Bold
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            // Italic
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            // Headers
+            .replace(/^### (.*?)$/gm, '<div style="font-weight:700;font-size:15px;color:#93c5fd;margin:10px 0 4px;">$1</div>')
+            .replace(/^## (.*?)$/gm, '<div style="font-weight:700;font-size:16px;color:#60a5fa;margin:12px 0 4px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:4px;">$1</div>')
+            // Horizontal rule
+            .replace(/^---$/gm, '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.1);margin:10px 0;">')
+            // Numbered list
+            .replace(/^(\d+\.\s+.+)$/gm, '<div style="padding:2px 0 2px 4px;">$1</div>')
+            // Bullet list — convert - or • to styled bullets
+            .replace(/^[-•]\s+(.+)$/gm, '<div style="padding:2px 0 2px 4px; display:flex; gap:8px;"><span style="color:#10b981;margin-top:2px;">▸</span><span>$1</span></div>')
+            // Line breaks (after all replacements)
+            .replace(/\n\n/g, '<div style="margin:6px 0;"></div>')
             .replace(/\n/g, '<br>');
+        return html;
     }
 
     function escapeHtml(text) {

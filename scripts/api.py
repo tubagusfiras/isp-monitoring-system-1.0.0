@@ -1819,12 +1819,21 @@ CONTEXT DATA SAAT INI:
 Bantu user memahami status jaringan mereka."""
 
         # Call Groq API
+        # Build message history for context
+        history = data.get('history', [])
+        groq_messages = [{"role": "system", "content": system_prompt}]
+        # Add last 8 messages from history (exclude current message)
+        for h in history[-9:-1]:
+            if h.get('role') in ('user', 'assistant') and h.get('content'):
+                groq_messages.append({
+                    "role": h['role'],
+                    "content": str(h['content'])[:500]  # limit per message
+                })
+        groq_messages.append({"role": "user", "content": user_message})
+
         completion = groq_client.chat.completions.create(
             model="meta-llama/llama-4-maverick-17b-128e-instruct",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message}
-            ],
+            messages=groq_messages,
             temperature=0.7,
             max_tokens=1000
         )
@@ -1849,15 +1858,16 @@ def build_monitoring_context():
         cur.execute("SELECT COUNT(*) as total FROM devices")
         total_devices = cur.fetchone()['total']
         
-        # 2. Healthy devices
         cur.execute("""
-            SELECT COUNT(*) as healthy 
+            SELECT COUNT(*) as healthy
             FROM latency_results lr
-            JOIN (SELECT device_id, MAX(timestamp) as max_ts 
-                  FROM latency_results 
-                  GROUP BY device_id) latest 
+            JOIN (SELECT device_id, MAX(timestamp) as max_ts
+                  FROM latency_results
+                  GROUP BY device_id) latest
             ON lr.device_id = latest.device_id AND lr.timestamp = latest.max_ts
-            WHERE lr.packet_loss < 5
+            JOIN devices d ON d.id = lr.device_id AND d.is_active = true
+            WHERE lr.packet_loss < 5 AND lr.rtt_avg < 100
+            AND lr.timestamp > NOW() - INTERVAL '10 minutes'
         """)
         healthy = cur.fetchone()['healthy']
 
