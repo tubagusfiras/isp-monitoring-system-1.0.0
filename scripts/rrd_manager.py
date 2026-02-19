@@ -111,12 +111,17 @@ def fetch_rrd(device_id, interface_name, timerange='24h'):
                 # Convert bytes/sec to Mbps
                 in_mbps = round(row[in_idx] * 8 / 1_000_000, 3)
                 out_mbps = round(row[out_idx] * 8 / 1_000_000, 3)
-                points.append({
-                    'ts': ts * 1000,  # milliseconds for JS
-                    'in': in_mbps,
-                    'out': out_mbps
-                })
+                points.append({'ts': ts * 1000, 'in': in_mbps, 'out': out_mbps})
+            else:
+                # Include null for gaps — Chart.js will show gap in line
+                points.append({'ts': ts * 1000, 'in': None, 'out': None})
             ts += step
+
+        # Trim leading/trailing nulls (no data at boundaries)
+        while points and points[0]['in'] is None:
+            points.pop(0)
+        while points and points[-1]['in'] is None:
+            points.pop()
 
         return points
     except Exception as e:
@@ -147,12 +152,17 @@ def fetch_rrd_custom(device_id, interface_name, start_ts, end_ts):
             if row[in_idx] is not None and row[out_idx] is not None:
                 in_mbps = round(row[in_idx] * 8 / 1_000_000, 3)
                 out_mbps = round(row[out_idx] * 8 / 1_000_000, 3)
-                points.append({
-                    'ts': ts * 1000,
-                    'in': in_mbps,
-                    'out': out_mbps
-                })
+                points.append({'ts': ts * 1000, 'in': in_mbps, 'out': out_mbps})
+            else:
+                points.append({'ts': ts * 1000, 'in': None, 'out': None})
             ts += step
+
+        # Trim leading/trailing nulls
+        while points and points[0]['in'] is None:
+            points.pop(0)
+        while points and points[-1]['in'] is None:
+            points.pop()
+
         return points
     except Exception as e:
         print(f"RRD fetch custom error: {e}")

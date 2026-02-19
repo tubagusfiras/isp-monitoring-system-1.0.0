@@ -3840,8 +3840,9 @@ function calc95th(arr) {
                         // PostgreSQL untuk short-term
                         // Fetch window lebih lebar dari display window agar dapat 2+ snapshots
                         let hours = 6;   // fetch window
-                        let displayHours = 1; // display window
-                        if (tab === '6h') { hours = 8; displayHours = 6; }
+                        let displayHours = null; // null = no filter (RRD handles its own range)
+                        if (tab === 'recent') { hours = 6; displayHours = 1; }
+                        else if (tab === '6h') { hours = 8; displayHours = 6; }
                         else if (tab === 'daily') { hours = 26; displayHours = 24; }
                         const metricsParam = currentChartType === 'errors' ? 'errors' : currentChartType === 'packets' ? 'packets' : 'bandwidth';
                         const res = await fetch(`${API_URL}/interfaces/history?device_id=${deviceId}&interface_name=${encodeURIComponent(interfaceName)}&hours=${hours}&metrics=${metricsParam}`);
@@ -3891,8 +3892,8 @@ function calc95th(arr) {
                         gradOut.addColorStop(0, 'rgba(59,130,246,0.3)'); gradOut.addColorStop(1, 'rgba(59,130,246,0.02)');
 
                         datasets = [
-                            { label: 'IN (' + yUnit + ')', data: inData.map(v => v / yDiv), borderColor: '#10b981', backgroundColor: gradIn, borderWidth: 2, fill: true, tension: 0.3, pointRadius: ptRadius, pointHoverRadius: 5 },
-                            { label: 'OUT (' + yUnit + ')', data: outData.map(v => v / yDiv), borderColor: '#3b82f6', backgroundColor: gradOut, borderWidth: 2, fill: true, tension: 0.3, pointRadius: ptRadius, pointHoverRadius: 5 }
+                            { label: 'IN (' + yUnit + ')', data: inData.map(v => v !== null ? v / yDiv : null), borderColor: '#10b981', backgroundColor: gradIn, borderWidth: 2, fill: true, tension: 0.3, pointRadius: ptRadius, pointHoverRadius: 5, spanGaps: false },
+                            { label: 'OUT (' + yUnit + ')', data: outData.map(v => v !== null ? v / yDiv : null), borderColor: '#3b82f6', backgroundColor: gradOut, borderWidth: 2, fill: true, tension: 0.3, pointRadius: ptRadius, pointHoverRadius: 5, spanGaps: false }
                         ];
                         if (speedMbps > 0) {
                             datasets.push({ label: 'Capacity (' + formatBandwidth(speedMbps) + ')', data: new Array(labels.length).fill(speedMbps / yDiv), borderColor: 'rgba(239,68,68,0.4)', borderWidth: 1, borderDash: [8,4], pointRadius: 0, fill: false, hidden: true });
