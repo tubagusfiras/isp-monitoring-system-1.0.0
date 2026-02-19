@@ -1436,7 +1436,7 @@ def get_interface_sparklines():
                 SELECT interface_name, in_octets, out_octets, speed, timestamp,
                     ROW_NUMBER() OVER (PARTITION BY interface_name ORDER BY timestamp DESC) as rn
                 FROM interface_stats
-                WHERE device_id = %s AND timestamp > NOW() - INTERVAL '2 hours'
+                WHERE device_id = %s AND timestamp > NOW() - INTERVAL '5 hours'
             )
             SELECT * FROM ranked WHERE rn <= 7
             ORDER BY interface_name, timestamp ASC
