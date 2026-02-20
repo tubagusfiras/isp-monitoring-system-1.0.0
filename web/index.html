@@ -586,6 +586,7 @@
             <button class="tab-btn" onclick="app.switchTab('anomalies')">⚠️ Anomalies</button>
             <button class="tab-btn" onclick="app.switchTab('content')">🌐 Content Monitor</button>
             <button class="tab-btn" onclick="app.switchTab('ai')">🤖 AI Assistant</button>
+            <a href="/site-summary.html" class="tab-btn" style="text-decoration:none">🗺️ Site Summary</a>
             <button class="tab-btn" onclick="app.switchTab('manage')">⚙️ Manage</button>
         </div>
 
@@ -631,28 +632,31 @@
         <!-- Server Performance Monitor -->
         <div id="performanceSection" style="margin-top: 30px;">
             <h2 style="font-size: 20px; font-weight: 600; margin-bottom: 20px; color: white;">📊 Server Performance</h2>
-            
             <!-- Gauges Row -->
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 25px;">
-                <div class="stat-card" style="text-align: center; padding: 25px;">
-                    <div style="font-size: 13px; color: rgba(255,255,255,0.6); margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.5px;">CPU Usage</div>
-                    <canvas id="cpuGauge" width="150" height="150"></canvas>
-                    <div id="cpuText" style="font-size: 32px; font-weight: 700; margin-top: 10px; color: #10b981;">0%</div>
-                    <div style="font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 5px;">Load: <span id="cpuLoad">-</span></div>
+                <div class="stat-card" style="padding: 25px;">
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">&#x1F4BB; CPU Usage</div>
+                    <div id="cpuText" style="font-size: 40px; font-weight: 700; color: #10b981; margin-bottom: 8px;">0%</div>
+                    <div style="background:rgba(255,255,255,0.1);border-radius:6px;height:10px;margin-bottom:10px;overflow:hidden;">
+                        <div id="cpuBar" style="height:100%;border-radius:6px;background:linear-gradient(90deg,#10b981,#34d399);width:0%;transition:width 0.5s;"></div>
+                    </div>
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.4);">Load Average: <span id="cpuLoad" style="color:rgba(255,255,255,0.7)">-</span></div>
                 </div>
-                
-                <div class="stat-card" style="text-align: center; padding: 25px;">
-                    <div style="font-size: 13px; color: rgba(255,255,255,0.6); margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.5px;">Memory Usage</div>
-                    <canvas id="memGauge" width="150" height="150"></canvas>
-                    <div id="memText" style="font-size: 32px; font-weight: 700; margin-top: 10px; color: #3b82f6;">0%</div>
-                    <div style="font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 5px;"><span id="memUsed">0</span> / <span id="memTotal">0</span> GB</div>
+                <div class="stat-card" style="padding: 25px;">
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">&#x1F4BE; Memory Usage</div>
+                    <div id="memText" style="font-size: 40px; font-weight: 700; color: #3b82f6; margin-bottom: 8px;">0%</div>
+                    <div style="background:rgba(255,255,255,0.1);border-radius:6px;height:10px;margin-bottom:10px;overflow:hidden;">
+                        <div id="memBar" style="height:100%;border-radius:6px;background:linear-gradient(90deg,#3b82f6,#60a5fa);width:0%;transition:width 0.5s;"></div>
+                    </div>
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.4);"><span id="memUsed" style="color:rgba(255,255,255,0.7)">0</span> / <span id="memTotal">0</span> GB used</div>
                 </div>
-                
-                <div class="stat-card" style="text-align: center; padding: 25px;">
-                    <div style="font-size: 13px; color: rgba(255,255,255,0.6); margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.5px;">Disk Usage</div>
-                    <canvas id="diskGauge" width="150" height="150"></canvas>
-                    <div id="diskText" style="font-size: 32px; font-weight: 700; margin-top: 10px; color: #f59e0b;">0%</div>
-                    <div style="font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 5px;"><span id="diskUsed">0</span> / <span id="diskTotal">0</span> GB</div>
+                <div class="stat-card" style="padding: 25px;">
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">&#x1F4BF; Disk Usage</div>
+                    <div id="diskText" style="font-size: 40px; font-weight: 700; color: #f59e0b; margin-bottom: 8px;">0%</div>
+                    <div style="background:rgba(255,255,255,0.1);border-radius:6px;height:10px;margin-bottom:10px;overflow:hidden;">
+                        <div id="diskBar" style="height:100%;border-radius:6px;background:linear-gradient(90deg,#f59e0b,#fbbf24);width:0%;transition:width 0.5s;"></div>
+                    </div>
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.4);"><span id="diskUsed" style="color:rgba(255,255,255,0.7)">0</span> / <span id="diskTotal">0</span> GB used</div>
                 </div>
             </div>
             
@@ -2728,7 +2732,7 @@
                 document.getElementById('interfacesTab').style.display = tab === 'interfaces' ? 'block' : 'none';
                 document.getElementById('contentTab').style.display = tab === 'content' ? 'block' : 'none';
                 document.getElementById('manageTab').style.display = tab === 'manage' ? 'block' : 'none';
-                if (tab === 'dashboard') loadDashboard();
+                if (tab === 'dashboard') { loadDashboard(); setTimeout(function(){ if(window.initPerformanceMonitor) window.initPerformanceMonitor(); }, 500); }
                 if (tab === 'ip-conflicts') loadIPConflicts();
                 if (tab === 'interfaces') loadInterfaceDevices();
                 if (tab === 'devices') { loadDeviceCards(); startDeviceAutoRefresh(); }
@@ -4631,6 +4635,163 @@ function calc95th(arr) {
     </div>
 
     <script src="/ai-assistant.js"></script>
+
+
+<style>
+#globalSearchOverlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;backdrop-filter:blur(4px);isolation:isolate}
+#globalSearchBox{max-width:620px;margin:100px auto 0;background:linear-gradient(135deg,#2a5298,#1e3c72);border-radius:16px;border:1px solid rgba(255,255,255,0.2);overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,0.5)}
+.gs-header{display:flex;align-items:center;padding:0 20px;border-bottom:1px solid rgba(255,255,255,0.1);gap:10px}
+.gs-header span{font-size:20px}
+#globalSearchInput{width:100%;padding:18px 20px;background:transparent;border:none;color:#fff;font-size:16px;outline:none}
+#globalSearchInput::placeholder{color:rgba(255,255,255,0.4)}
+.gs-close{margin-left:auto;background:none;border:none;color:rgba(255,255,255,0.5);font-size:20px;cursor:pointer;padding:4px 8px}
+.gs-close:hover{color:#fff}
+#globalSearchResults{max-height:420px;overflow-y:auto;padding:8px}
+.gs-result{display:flex;align-items:flex-start;gap:12px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:background 0.15s}
+.gs-result:hover{background:rgba(255,255,255,0.1)}
+.gs-icon{font-size:18px;margin-top:2px;flex-shrink:0}
+.gs-body{flex:1;min-width:0}
+.gs-title{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gs-sub{font-size:12px;color:rgba(255,255,255,0.55);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gs-meta{font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gs-badge{padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;text-transform:uppercase;flex-shrink:0;margin-top:2px}
+.gs-badge-device{background:rgba(59,130,246,0.25);color:#60a5fa}
+.gs-badge-interface{background:rgba(139,92,246,0.25);color:#a78bfa}
+.gs-badge-ip{background:rgba(16,185,129,0.25);color:#34d399}
+.gs-badge-anomaly{background:rgba(245,158,11,0.25);color:#fbbf24}
+.gs-empty{text-align:center;padding:30px;color:rgba(255,255,255,0.4);font-size:14px}
+.gs-footer{padding:10px 16px;border-top:1px solid rgba(255,255,255,0.08);display:flex;gap:16px;font-size:11px;color:rgba(255,255,255,0.3)}
+.gs-hint-btn{background:rgba(255,255,255,0.1);border-radius:4px;padding:2px 6px;font-family:monospace}
+#gsSearchBtn{position:fixed;bottom:90px;right:30px;background:rgba(59,130,246,0.9);border:none;color:#fff;width:48px;height:48px;border-radius:50%;font-size:20px;cursor:pointer;z-index:998;box-shadow:0 4px 15px rgba(59,130,246,0.4);transition:all 0.2s}
+#gsSearchBtn:hover{transform:scale(1.1);background:rgba(59,130,246,1)}
+</style>
+
+<button id="gsSearchBtn" onclick="gsOpen()" title="Global Search (Ctrl+K)">&#128269;</button>
+
+<div id="globalSearchOverlay">
+<div id="globalSearchBox">
+  <div class="gs-header">
+    <span>&#128269;</span>
+    <input id="globalSearchInput" placeholder="Search devices, interfaces, IPs, anomalies..." oninput="gsSearch(this.value)" onkeydown="gsKeydown(event)">
+    <button class="gs-close" onclick="gsClose()">&#10005;</button>
+  </div>
+  <div id="globalSearchResults"><div class="gs-empty">Type to search...</div></div>
+  <div class="gs-footer">
+    <span><span class="gs-hint-btn">up/down</span> navigate</span>
+    <span><span class="gs-hint-btn">Enter</span> select</span>
+    <span><span class="gs-hint-btn">Esc</span> close</span>
+    <span><span class="gs-hint-btn">Ctrl+K</span> open</span>
+  </div>
+</div>
+</div>
+
+<script>
+var gsTimer=null;
+var gsSelectedIdx=-1;
+var gsResults=[];
+
+function gsOpen(){
+  document.getElementById('globalSearchOverlay').style.display='block';
+  setTimeout(function(){ document.getElementById('globalSearchInput').focus(); },50);
+}
+
+function gsClose(){
+  document.getElementById('globalSearchOverlay').style.display='none';
+  document.getElementById('globalSearchInput').value='';
+  document.getElementById('globalSearchResults').innerHTML='<div class="gs-empty">Type to search...</div>';
+  gsSelectedIdx=-1;
+  gsResults=[];
+}
+
+document.getElementById('globalSearchOverlay').addEventListener('click', function(e){
+  if(e.target===this) gsClose();
+});
+
+document.addEventListener('keydown', function(e){
+  if((e.ctrlKey||e.metaKey) && e.key==='k'){ e.preventDefault(); gsOpen(); }
+  if(e.key==='Escape') gsClose();
+});
+
+function gsSearch(q){
+  clearTimeout(gsTimer);
+  if(q.length < 2){
+    document.getElementById('globalSearchResults').innerHTML='<div class="gs-empty">Type at least 2 characters...</div>';
+    return;
+  }
+  document.getElementById('globalSearchResults').innerHTML='<div class="gs-empty">Searching...</div>';
+  gsTimer=setTimeout(function(){
+    fetch('/api/search?q='+encodeURIComponent(q), {credentials:'include'})
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        if(!data.success) throw new Error(data.error);
+        gsResults=data.results;
+        gsSelectedIdx=-1;
+        gsRender(data.results, q);
+      })
+      .catch(function(e){
+        document.getElementById('globalSearchResults').innerHTML='<div class="gs-empty">Error: '+e.message+'</div>';
+      });
+  }, 300);
+}
+
+function gsHighlight(text, q){
+  if(!q || !text) return text;
+  var escaped = q.replace(/[-[\]{}()*+?.,\^$|#\s]/g, '\$&');
+  return text.replace(new RegExp('('+escaped+')', 'gi'), '<mark style="background:rgba(59,130,246,0.4);color:#fff;border-radius:3px;padding:0 2px">$1</mark>');
+}
+
+function gsRender(results, q){
+  var el=document.getElementById('globalSearchResults');
+  if(!results.length){ el.innerHTML='<div class="gs-empty">No results found</div>'; return; }
+  var html='';
+  for(var i=0;i<results.length;i++){
+    var r=results[i];
+    html+='<div class="gs-result" id="gsr-'+i+'" onclick="gsSelect('+i+')" onmouseover="gsHover('+i+')">';
+    html+='<div class="gs-icon">'+r.icon+'</div>';
+    html+='<div class="gs-body">';
+    html+='<div class="gs-title">'+gsHighlight(r.title, q)+'</div>';
+    html+='<div class="gs-sub">'+r.subtitle+'</div>';
+    if(r.meta) html+='<div class="gs-meta">'+r.meta+'</div>';
+    html+='</div>';
+    html+='<span class="gs-badge gs-badge-'+r.type+'">'+r.type+'</span>';
+    html+='</div>';
+  }
+  el.innerHTML=html;
+}
+
+function gsHover(i){ gsSelectedIdx=i; gsUpdateSelected(); }
+
+function gsKeydown(e){
+  if(e.key==='ArrowDown'){ e.preventDefault(); gsSelectedIdx=Math.min(gsSelectedIdx+1, gsResults.length-1); gsUpdateSelected(); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); gsSelectedIdx=Math.max(gsSelectedIdx-1, 0); gsUpdateSelected(); }
+  else if(e.key==='Enter' && gsSelectedIdx>=0){ gsSelect(gsSelectedIdx); }
+}
+
+function gsUpdateSelected(){
+  var items=document.querySelectorAll('.gs-result');
+  for(var i=0;i<items.length;i++){
+    items[i].style.background = (i===gsSelectedIdx) ? 'rgba(59,130,246,0.25)' : '';
+  }
+  var el=document.getElementById('gsr-'+gsSelectedIdx);
+  if(el) el.scrollIntoView({block:'nearest'});
+}
+
+function gsSelect(i){
+  var r=gsResults[i];
+  gsClose();
+  if(r.type==='device'){
+    if(typeof app!=='undefined' && app.openDeviceDetail) app.openDeviceDetail(r.id);
+    else window.location.href='/?device='+r.id;
+  } else if(r.type==='interface'){
+    if(typeof app!=='undefined' && app.switchTab) app.switchTab('interfaces');
+  } else if(r.type==='ip'){
+    if(typeof app!=='undefined' && app.switchTab) app.switchTab('ip-conflicts');
+  } else if(r.type==='anomaly'){
+    if(typeof app!=='undefined' && app.switchTab) app.switchTab('anomalies');
+  }
+}
+</script>
+
 </body>
 </html>
-
+</html>

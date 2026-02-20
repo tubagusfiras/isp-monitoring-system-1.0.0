@@ -141,7 +141,11 @@ def get_devices():
     try:
         conn = get_db()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM devices ORDER BY id")
+        location = request.args.get("location")
+        if location:
+            cur.execute("SELECT * FROM devices WHERE TRIM(location) ILIKE %s AND is_active=true ORDER BY hostname", (location,))
+        else:
+            cur.execute("SELECT * FROM devices ORDER BY id")
         devices = cur.fetchall()
         cur.close()
         conn.close()
@@ -2197,3 +2201,229 @@ if __name__ == '__main__':
     print("   - Content Targets: CRUD, latency monitoring")
     print("\n✅ Ready on http://0.0.0.0:5000")
     app.run(host='0.0.0.0', port=5000, debug=False)
+
+@app.route('/api/sites/summary', methods=['GET'])
+@login_required
+def get_sites_summary():
+    """Get per-site summary for dashboard"""
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Aggregate per site (normalize location casing)
+        cur.execute("""
+            SELECT
+                COALESCE(NULLIF(TRIM(d.location), ''), 'Unknown') as location,
+                COUNT(DISTINCT d.id) as total_devices,
+                COUNT(DISTINCT CASE WHEN d.role = 'core' THEN d.id END) as core_devices,
+                COUNT(DISTINCT CASE WHEN d.role = 'edge' THEN d.id END) as edge_devices,
+                COUNT(DISTINCT CASE WHEN d.role = 'peering' THEN d.id END) as peering_devices,
+                COUNT(DISTINCT CASE WHEN d.role = 'customer_handoff' THEN d.id END) as handoff_devices,
+                COUNT(DISTINCT CASE WHEN d.role IS NULL OR d.role = '' THEN d.id END) as other_devices,
+                COUNT(DISTINCT ist.interface_name) as total_interfaces,
+                MAX(ist.timestamp) as last_poll
+            FROM devices d
+            LEFT JOIN interface_stats ist ON ist.device_id = d.id
+                AND ist.timestamp > NOW() - INTERVAL '3 hours'
+            WHERE d.is_active = true
+            GROUP BY COALESCE(NULLIF(TRIM(d.location), ''), 'Unknown')
+            ORDER BY location
+        """)
+        sites = cur.fetchall()
+
+        # Get latency health per site
+        cur.execute("""
+            SELECT
+                COALESCE(NULLIF(TRIM(d.location), ''), 'Unknown') as location,
+                COUNT(DISTINCT d.id) as devices_reachable,
+                AVG(lr.rtt_avg) as avg_latency,
+                AVG(lr.packet_loss) as avg_loss,
+                COUNT(DISTINCT CASE WHEN lr.packet_loss >= 100 THEN d.id END) as devices_down
+            FROM devices d
+            JOIN (
+                SELECT device_id, MAX(timestamp) as max_ts
+                FROM latency_results
+                WHERE timestamp > NOW() - INTERVAL '10 minutes'
+                GROUP BY device_id
+            ) latest ON latest.device_id = d.id
+            JOIN latency_results lr ON lr.device_id = d.id AND lr.timestamp = latest.max_ts
+            WHERE d.is_active = true
+            GROUP BY COALESCE(NULLIF(TRIM(d.location), ''), 'Unknown')
+        """)
+        latency_data = {row['location']: row for row in cur.fetchall()}
+
+        # Get top bandwidth interfaces per site (last collection)
+        cur.execute("""
+            SELECT
+                COALESCE(NULLIF(TRIM(d.location), ''), 'Unknown') as location,
+                SUM(rc.in_octets + rc.out_octets) as total_bps
+            FROM realtime_cache rc
+            JOIN devices d ON d.id = rc.device_id
+            WHERE d.is_active = true
+            GROUP BY COALESCE(NULLIF(TRIM(d.location), ''), 'Unknown')
+        """)
+        bw_data = {row['location']: row for row in cur.fetchall()}
+
+        # Get anomaly count per site (last 24h)
+        cur.execute("""
+            SELECT
+                COALESCE(NULLIF(TRIM(d.location), ''), 'Unknown') as location,
+                COUNT(*) as anomaly_count
+            FROM anomalies a
+            JOIN devices d ON d.id = a.device_id
+            WHERE a.detected_at > NOW() - INTERVAL '24 hours'
+            AND d.is_active = true
+            GROUP BY COALESCE(NULLIF(TRIM(d.location), ''), 'Unknown')
+        """)
+        anomaly_data = {row['location']: row for row in cur.fetchall()}
+
+        # Merge all data
+        result = []
+        for site in sites:
+            loc = site['location']
+            lat = latency_data.get(loc, {})
+            bw = bw_data.get(loc, {})
+            anom = anomaly_data.get(loc, {})
+
+            # Determine health status
+            devices_down = lat.get('devices_down', 0) or 0
+            avg_loss = float(lat.get('avg_loss', 0) or 0)
+            avg_latency = float(lat.get('avg_latency', 0) or 0)
+            anomalies = int(anom.get('anomaly_count', 0) or 0)
+
+            if devices_down > 0 or avg_loss >= 50:
+                health = 'critical'
+            elif avg_loss >= 10 or avg_latency >= 100 or anomalies > 5:
+                health = 'warning'
+            elif lat.get('devices_reachable', 0):
+                health = 'healthy'
+            else:
+                health = 'unknown'
+
+            result.append({
+                'location': loc,
+                'total_devices': site['total_devices'],
+                'core_devices': site['core_devices'],
+                'edge_devices': site['edge_devices'],
+                'peering_devices': site['peering_devices'],
+                'handoff_devices': site['handoff_devices'],
+                'other_devices': site['other_devices'],
+                'total_interfaces': site['total_interfaces'],
+                'last_poll': site['last_poll'].isoformat() if site['last_poll'] else None,
+                'devices_reachable': int(lat.get('devices_reachable', 0) or 0),
+                'devices_down': int(devices_down),
+                'avg_latency': round(avg_latency, 1),
+                'avg_loss': round(avg_loss, 1),
+                'total_bps': int(bw.get('total_bps', 0) or 0),
+                'anomaly_count': anomalies,
+                'health': health
+            })
+
+        cur.close()
+        conn.close()
+        return jsonify({'success': True, 'sites': result, 'total_sites': len(result)})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/search', methods=['GET'])
+@login_required
+def global_search():
+    """Global search across devices, interfaces, IP inventory, anomalies"""
+    try:
+        q = request.args.get('q', '').strip()
+        if len(q) < 2:
+            return jsonify({'success': True, 'results': [], 'total': 0})
+
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        pattern = f'%{q}%'
+        results = []
+
+        # Search devices
+        cur.execute("""
+            SELECT id, hostname, ip_address::text as ip, device_type, location, role, is_active
+            FROM devices
+            WHERE hostname ILIKE %s OR ip_address::text ILIKE %s OR location ILIKE %s
+            ORDER BY is_active DESC, hostname
+            LIMIT 10
+        """, (pattern, pattern, pattern))
+        for row in cur.fetchall():
+            results.append({
+                'type': 'device',
+                'icon': '🖥️',
+                'title': row['hostname'],
+                'subtitle': f"{row['ip']} • {row['location'] or '-'} • {row['role'] or '-'}",
+                'meta': row['device_type'],
+                'id': row['id'],
+                'active': row['is_active']
+            })
+
+        # Search interfaces
+        cur.execute("""
+            SELECT DISTINCT ON (i.interface_name, i.device_id)
+                i.device_id, i.interface_name, i.description, i.oper_status,
+                d.hostname, d.location
+            FROM interface_stats i
+            JOIN devices d ON d.id = i.device_id
+            WHERE i.interface_name ILIKE %s OR i.description ILIKE %s
+            ORDER BY i.interface_name, i.device_id, i.timestamp DESC
+            LIMIT 10
+        """, (pattern, pattern))
+        for row in cur.fetchall():
+            results.append({
+                'type': 'interface',
+                'icon': '🔌',
+                'title': row['interface_name'],
+                'subtitle': f"{row['hostname']} • {row['location'] or '-'}",
+                'meta': row['description'] or row['oper_status'],
+                'device_id': row['device_id'],
+                'interface_name': row['interface_name']
+            })
+
+        # Search IP inventory
+        cur.execute("""
+            SELECT ip.ip_address::text as ip, ip.mac_address, ip.hostname as inv_hostname,
+                   d.hostname as device_hostname, d.id as device_id
+            FROM ip_inventory ip
+            LEFT JOIN devices d ON d.id = ip.device_id
+            WHERE ip.ip_address::text ILIKE %s OR ip.hostname ILIKE %s OR ip.mac_address ILIKE %s
+            LIMIT 8
+        """, (pattern, pattern, pattern))
+        for row in cur.fetchall():
+            results.append({
+                'type': 'ip',
+                'icon': '🌐',
+                'title': row['ip'],
+                'subtitle': f"{row['inv_hostname'] or '-'} • {row['device_hostname'] or '-'}",
+                'meta': row['mac_address'] or '',
+                'device_id': row['device_id']
+            })
+
+        # Search anomalies
+        cur.execute("""
+            SELECT a.id, a.anomaly_type, a.description, a.severity, a.detected_at,
+                   d.hostname, d.id as device_id
+            FROM anomalies a
+            JOIN devices d ON d.id = a.device_id
+            WHERE a.description ILIKE %s OR a.anomaly_type ILIKE %s OR d.hostname ILIKE %s
+            ORDER BY a.detected_at DESC
+            LIMIT 8
+        """, (pattern, pattern, pattern))
+        for row in cur.fetchall():
+            results.append({
+                'type': 'anomaly',
+                'icon': '⚠️',
+                'title': row['anomaly_type'],
+                'subtitle': f"{row['hostname']} • {row['detected_at'].strftime('%Y-%m-%d %H:%M')}",
+                'meta': row['description'][:80] + ('...' if len(row['message']) > 80 else ''),
+                'severity': row['severity'],
+                'device_id': row['device_id']
+            })
+
+        cur.close()
+        conn.close()
+        return jsonify({'success': True, 'results': results, 'total': len(results), 'query': q})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500

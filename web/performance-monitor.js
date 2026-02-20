@@ -24,6 +24,11 @@
         performanceTimer = setInterval(loadPerformanceData, 10000);
         
         console.log('✅ Performance monitor initialized');
+        // Force resize charts after init
+        setTimeout(function() {
+            if (networkChart) networkChart.resize();
+            if (loadChart) loadChart.resize();
+        }, 500);
     };
     
     window.stopPerformanceMonitor = function() {
@@ -153,10 +158,13 @@
     }
     
     function updateGauge(gauge, percent, textId, ...extraIds) {
-        if (!gauge) return;
-        
-        gauge.data.datasets[0].data = [percent, 100 - percent];
-        gauge.update('none');
+        if (gauge) {
+            gauge.data.datasets[0].data = [percent, 100 - percent];
+            gauge.update('none');
+        }
+        const barId = textId.replace('Text', 'Bar');
+        const barEl = document.getElementById(barId);
+        if (barEl) barEl.style.width = Math.min(percent, 100) + '%';
         
         const textEl = document.getElementById(textId);
         if (textEl) {

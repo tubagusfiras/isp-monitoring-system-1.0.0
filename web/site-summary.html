@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Site Summary - SDI Monitoring</title>
+    <style>
+        body { zoom: 0.85; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #fff;
+            min-height: 100vh;
+        }
+        .container { max-width: 1600px; margin: 0 auto; padding: 20px; }
+        header {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px 30px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(255,255,255,0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .header-left h1 { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+        .header-left .subtitle { color: rgba(255,255,255,0.7); font-size: 13px; }
+        .header-right { display: flex; gap: 10px; align-items: center; }
+        .btn {
+            padding: 9px 18px; border: none; border-radius: 8px;
+            cursor: pointer; font-size: 13px; font-weight: 500;
+            transition: all 0.2s; text-decoration: none; display: inline-flex;
+            align-items: center; gap: 6px;
+        }
+        .btn-secondary {
+            background: rgba(255,255,255,0.15); color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .btn-secondary:hover { background: rgba(255,255,255,0.25); }
+        .btn-primary { background: rgba(59,130,246,0.8); color: #fff; }
+        .btn-primary:hover { background: rgba(59,130,246,1); }
+
+        /* Summary Cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .summary-card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.2);
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .summary-card:hover { transform: translateY(-3px); background: rgba(255,255,255,0.15); }
+        .summary-card .label { font-size: 12px; color: rgba(255,255,255,0.65); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+        .summary-card .value { font-size: 36px; font-weight: 700; }
+        .summary-card .sub { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 4px; }
+        .value-green { color: #10b981; }
+        .value-yellow { color: #f59e0b; }
+        .value-red { color: #ef4444; }
+        .value-blue { color: #60a5fa; }
+
+        /* Controls */
+        .controls {
+            background: rgba(255,255,255,0.08);
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .search-input {
+            padding: 8px 14px; border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(0,0,0,0.25); color: #fff;
+            font-size: 13px; width: 240px;
+        }
+        .search-input::placeholder { color: rgba(255,255,255,0.4); }
+        .search-input:focus { outline: none; border-color: rgba(59,130,246,0.8); }
+        .filter-btn {
+            padding: 7px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7);
+            cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s;
+        }
+        .filter-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+        .filter-btn.active { background: rgba(59,130,246,0.4); color: #fff; border-color: rgba(59,130,246,0.6); }
+        .view-toggle { display: flex; gap: 5px; margin-left: auto; }
+        .view-btn {
+            padding: 7px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6);
+            cursor: pointer; font-size: 14px; transition: all 0.2s;
+        }
+        .view-btn.active { background: rgba(59,130,246,0.4); color: #fff; }
+
+        /* Site Grid */
+        .sites-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 18px;
+        }
+        .site-card {
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(10px);
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.15);
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.25s;
+            position: relative;
+            overflow: hidden;
+        }
+        .site-card:hover { transform: translateY(-4px); background: rgba(255,255,255,0.13); border-color: rgba(255,255,255,0.3); }
+        .site-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+        }
+        .site-card.healthy::before { background: linear-gradient(90deg, #10b981, #34d399); }
+        .site-card.warning::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+        .site-card.critical::before { background: linear-gradient(90deg, #ef4444, #f87171); }
+        .site-card.unknown::before { background: linear-gradient(90deg, #6b7280, #9ca3af); }
+
+        .site-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+        .site-name { font-size: 16px; font-weight: 700; }
+        .site-name span { font-size: 12px; font-weight: 400; color: rgba(255,255,255,0.5); display: block; margin-top: 2px; }
+        .health-badge {
+            padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .health-badge.healthy { background: rgba(16,185,129,0.2); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+        .health-badge.warning { background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
+        .health-badge.critical { background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
+        .health-badge.unknown { background: rgba(107,114,128,0.2); color: #9ca3af; border: 1px solid rgba(107,114,128,0.3); }
+
+        .site-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .metric { text-align: center; background: rgba(0,0,0,0.15); border-radius: 8px; padding: 10px 6px; }
+        .metric .m-val { font-size: 20px; font-weight: 700; }
+        .metric .m-lbl { font-size: 10px; color: rgba(255,255,255,0.5); text-transform: uppercase; margin-top: 2px; }
+
+        .site-roles { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+        .role-badge {
+            padding: 3px 9px; border-radius: 6px; font-size: 11px; font-weight: 500;
+        }
+        .role-core { background: rgba(59,130,246,0.25); color: #60a5fa; }
+        .role-edge { background: rgba(139,92,246,0.25); color: #a78bfa; }
+        .role-peering { background: rgba(245,158,11,0.25); color: #fbbf24; }
+        .role-handoff { background: rgba(16,185,129,0.25); color: #34d399; }
+        .role-other { background: rgba(107,114,128,0.25); color: #9ca3af; }
+
+        .site-footer {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 11px; color: rgba(255,255,255,0.4);
+            border-top: 1px solid rgba(255,255,255,0.08);
+            padding-top: 10px; margin-top: 4px;
+        }
+        .latency-bar {
+            height: 4px; border-radius: 2px; background: rgba(255,255,255,0.1);
+            margin-top: 6px; overflow: hidden;
+        }
+        .latency-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
+
+        /* Table View */
+        .sites-table-wrap {
+            display: none;
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.15);
+            overflow: auto;
+        }
+        .sites-table-wrap table { width: 100%; border-collapse: collapse; }
+        .sites-table-wrap thead { background: rgba(0,0,0,0.3); position: sticky; top: 0; }
+        .sites-table-wrap th {
+            padding: 12px 16px; text-align: left; font-size: 11px;
+            text-transform: uppercase; color: rgba(255,255,255,0.7); font-weight: 600;
+            white-space: nowrap;
+        }
+        .sites-table-wrap td { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.07); font-size: 13px; white-space: nowrap; }
+        .sites-table-wrap tbody tr { cursor: pointer; transition: background 0.15s; }
+        .sites-table-wrap tbody tr:hover { background: rgba(255,255,255,0.07); }
+
+        /* Modal */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; overflow-y: auto; }
+        .modal-content {
+            background: linear-gradient(135deg, #2a5298 0%, #1e3c72 100%);
+            max-width: 1000px; margin: 30px auto; padding: 30px;
+            border-radius: 15px; border: 1px solid rgba(255,255,255,0.2);
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-close {
+            background: rgba(239,68,68,0.3); border: none; color: #ef4444;
+            font-size: 22px; width: 34px; height: 34px; border-radius: 50%;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .modal-close:hover { background: rgba(239,68,68,0.5); transform: rotate(90deg); }
+        .modal-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap: 12px; margin-bottom: 20px; }
+        .modal-stat { background: rgba(255,255,255,0.1); border-radius: 10px; padding: 14px; text-align: center; }
+        .modal-stat .ms-val { font-size: 24px; font-weight: 700; }
+        .modal-stat .ms-lbl { font-size: 11px; color: rgba(255,255,255,0.6); text-transform: uppercase; margin-top: 4px; }
+        .device-list { background: rgba(0,0,0,0.2); border-radius: 10px; overflow: auto; max-height: 400px; }
+        .device-list table { width: 100%; border-collapse: collapse; }
+        .device-list th { padding: 10px 14px; background: rgba(0,0,0,0.3); font-size: 11px; text-transform: uppercase; color: rgba(255,255,255,0.7); text-align: left; position: sticky; top: 0; }
+        .device-list td { padding: 10px 14px; border-top: 1px solid rgba(255,255,255,0.07); font-size: 12px; }
+        .device-list tbody tr:hover { background: rgba(255,255,255,0.06); }
+
+        /* Status dot */
+        .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+        .dot-green { background: #10b981; box-shadow: 0 0 5px #10b981; }
+        .dot-red { background: #ef4444; box-shadow: 0 0 5px #ef4444; }
+        .dot-gray { background: #6b7280; }
+
+        /* Loading */
+        .loading { text-align: center; padding: 60px; color: rgba(255,255,255,0.5); font-size: 16px; }
+        .spinner { border: 3px solid rgba(255,255,255,0.2); border-top: 3px solid #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 0.8s linear infinite; margin: 0 auto 15px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .last-updated { font-size: 12px; color: rgba(255,255,255,0.4); }
+        .no-data { text-align: center; padding: 40px; color: rgba(255,255,255,0.4); }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <div class="header-left">
+            <h1>🗺️ Site Summary Dashboard</h1>
+            <div class="subtitle" id="lastUpdated">Loading...</div>
+        </div>
+        <div class="header-right">
+            <span class="last-updated" id="refreshCountdown"></span>
+            <a href="/" class="btn btn-secondary">← Back to Main</a>
+            <button class="btn btn-primary" onclick="loadData()">🔄 Refresh</button>
+        </div>
+    </header>
+
+    <!-- Global Summary Cards -->
+    <div class="summary-grid">
+        <div class="summary-card">
+            <div class="label">Total Sites</div>
+            <div class="value value-blue" id="totalSites">-</div>
+            <div class="sub">Active locations</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Total Devices</div>
+            <div class="value" id="totalDevices">-</div>
+            <div class="sub">Active devices</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Total Interfaces</div>
+            <div class="value value-blue" id="totalInterfaces">-</div>
+            <div class="sub">Monitored interfaces</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Healthy Sites</div>
+            <div class="value value-green" id="healthySites">-</div>
+            <div class="sub">No issues detected</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Warning Sites</div>
+            <div class="value value-yellow" id="warningSites">-</div>
+            <div class="sub">Needs attention</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Critical Sites</div>
+            <div class="value value-red" id="criticalSites">-</div>
+            <div class="sub">Action required</div>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+        <input type="text" class="search-input" id="searchInput" placeholder="🔍 Search site..." oninput="renderSites()">
+        <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
+        <button class="filter-btn" data-filter="healthy" onclick="setFilter('healthy')">✅ Healthy</button>
+        <button class="filter-btn" data-filter="warning" onclick="setFilter('warning')">⚠️ Warning</button>
+        <button class="filter-btn" data-filter="critical" onclick="setFilter('critical')">🔴 Critical</button>
+        <button class="filter-btn" data-filter="unknown" onclick="setFilter('unknown')">❓ Unknown</button>
+        <div class="view-toggle">
+            <button class="view-btn active" id="gridViewBtn" onclick="setView('grid')" title="Grid View">⊞</button>
+            <button class="view-btn" id="tableViewBtn" onclick="setView('table')" title="Table View">≡</button>
+        </div>
+    </div>
+
+    <!-- Grid View -->
+    <div id="gridView">
+        <div class="sites-grid" id="sitesGrid">
+            <div class="loading"><div class="spinner"></div>Loading site data...</div>
+        </div>
+    </div>
+
+    <!-- Table View -->
+    <div class="sites-table-wrap" id="tableView">
+        <table>
+            <thead>
+                <tr>
+                    <th>Site</th>
+                    <th>Health</th>
+                    <th>Devices</th>
+                    <th>Interfaces</th>
+                    <th>Roles</th>
+                    <th>Avg Latency</th>
+                    <th>Packet Loss</th>
+                    <th>Anomalies</th>
+                    <th>Last Poll</th>
+                </tr>
+            </thead>
+            <tbody id="sitesTableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Site Detail Modal -->
+<div class="modal" id="siteModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div>
+                <h2 id="modalSiteName">Site Name</h2>
+                <div style="color:rgba(255,255,255,0.6);font-size:13px;margin-top:4px" id="modalSiteSubtitle"></div>
+            </div>
+            <button class="modal-close" onclick="closeModal()">✕</button>
+        </div>
+        <div class="modal-stats" id="modalStats"></div>
+        <h3 style="margin-bottom:12px;font-size:15px;">Devices at this site</h3>
+        <div class="device-list" id="modalDeviceList"></div>
+    </div>
+</div>
+
+<script>
+let allSites = [];
+let currentFilter = 'all';
+let currentView = 'grid';
+let refreshTimer;
+let countdown = 60;
+
+function formatBps(bps) {
+    if (!bps || bps === 0) return '-';
+    if (bps >= 1e9) return (bps/1e9).toFixed(1) + ' Gbps';
+    if (bps >= 1e6) return (bps/1e6).toFixed(1) + ' Mbps';
+    if (bps >= 1e3) return (bps/1e3).toFixed(1) + ' Kbps';
+    return bps + ' bps';
+}
+
+function formatTime(iso) {
+    if (!iso) return 'Never';
+    const d = new Date(iso);
+    const diff = Math.floor((Date.now() - d)/1000);
+    if (diff < 60) return diff + 's ago';
+    if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+    return Math.floor(diff/86400) + 'd ago';
+}
+
+function healthIcon(h) {
+    return {healthy:'✅', warning:'⚠️', critical:'🔴', unknown:'❓'}[h] || '❓';
+}
+
+function latencyColor(ms) {
+    if (ms <= 0) return '#6b7280';
+    if (ms < 20) return '#10b981';
+    if (ms < 50) return '#fbbf24';
+    if (ms < 100) return '#f97316';
+    return '#ef4444';
+}
+
+function lossColor(pct) {
+    if (pct <= 0) return '#10b981';
+    if (pct < 5) return '#fbbf24';
+    if (pct < 20) return '#f97316';
+    return '#ef4444';
+}
+
+async function loadData() {
+    try {
+        const res = await fetch('/api/sites/summary', {credentials: 'include'});
+        if (res.status === 401) { window.location.href = '/'; return; }
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+
+        allSites = data.sites;
+
+        // Update summary cards
+        document.getElementById('totalSites').textContent = data.total_sites;
+        document.getElementById('totalDevices').textContent = allSites.reduce((s,x) => s + x.total_devices, 0);
+        document.getElementById('totalInterfaces').textContent = allSites.reduce((s,x) => s + x.total_interfaces, 0).toLocaleString();
+        document.getElementById('healthySites').textContent = allSites.filter(x => x.health === 'healthy').length;
+        document.getElementById('warningSites').textContent = allSites.filter(x => x.health === 'warning').length;
+        document.getElementById('criticalSites').textContent = allSites.filter(x => x.health === 'critical').length;
+        document.getElementById('lastUpdated').textContent = `Site Summary • ${allSites.length} locations • Updated ${new Date().toLocaleTimeString()}`;
+
+        renderSites();
+        startCountdown();
+    } catch(e) {
+        document.getElementById('sitesGrid').innerHTML = `<div class="no-data">❌ Error loading data: ${e.message}</div>`;
+    }
+}
+
+function getFilteredSites() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    return allSites.filter(s => {
+        const matchFilter = currentFilter === 'all' || s.health === currentFilter;
+        const matchSearch = !q || s.location.toLowerCase().includes(q);
+        return matchFilter && matchSearch;
+    });
+}
+
+function renderSites() {
+    const sites = getFilteredSites();
+    if (currentView === 'grid') renderGrid(sites);
+    else renderTable(sites);
+}
+
+function renderGrid(sites) {
+    const grid = document.getElementById('sitesGrid');
+    if (!sites.length) { grid.innerHTML = '<div class="no-data">No sites match filter</div>'; return; }
+
+    grid.innerHTML = sites.map(s => {
+        const roles = [
+            s.core_devices > 0 ? `<span class="role-badge role-core">${s.core_devices} Core</span>` : '',
+            s.edge_devices > 0 ? `<span class="role-badge role-edge">${s.edge_devices} Edge</span>` : '',
+            s.peering_devices > 0 ? `<span class="role-badge role-peering">${s.peering_devices} Peering</span>` : '',
+            s.handoff_devices > 0 ? `<span class="role-badge role-handoff">${s.handoff_devices} Handoff</span>` : '',
+            s.other_devices > 0 ? `<span class="role-badge role-other">${s.other_devices} Other</span>` : '',
+        ].filter(Boolean).join('');
+
+        const latFill = Math.min((s.avg_latency / 150) * 100, 100);
+        const latCol = latencyColor(s.avg_latency);
+
+        return `
+        <div class="site-card ${s.health}" onclick="openSiteModal('${s.location.replace(/'/g,"\\'")}')">
+            <div class="site-header">
+                <div class="site-name">
+                    ${s.location}
+                    <span>${s.total_devices} device${s.total_devices !== 1 ? 's' : ''}</span>
+                </div>
+                <div class="health-badge ${s.health}">${healthIcon(s.health)} ${s.health}</div>
+            </div>
+            <div class="site-metrics">
+                <div class="metric">
+                    <div class="m-val">${s.total_devices}</div>
+                    <div class="m-lbl">Devices</div>
+                </div>
+                <div class="metric">
+                    <div class="m-val">${s.total_interfaces}</div>
+                    <div class="m-lbl">Interfaces</div>
+                </div>
+                <div class="metric">
+                    <div class="m-val" style="color:${s.anomaly_count > 0 ? '#f59e0b' : '#10b981'}">${s.anomaly_count}</div>
+                    <div class="m-lbl">Anomalies</div>
+                </div>
+            </div>
+            <div class="site-roles">${roles || '<span class="role-badge role-other">Unclassified</span>'}</div>
+            <div style="display:flex;gap:16px;margin-bottom:10px;font-size:12px;">
+                <span>📡 <span style="color:${latencyColor(s.avg_latency)}">${s.avg_latency > 0 ? s.avg_latency + ' ms' : 'N/A'}</span></span>
+                <span>📉 <span style="color:${lossColor(s.avg_loss)}">${s.avg_loss > 0 ? s.avg_loss + '%' : '0%'} loss</span></span>
+                <span>🔴 ${s.devices_down} down</span>
+            </div>
+            <div class="latency-bar">
+                <div class="latency-fill" style="width:${latFill}%;background:${latCol}"></div>
+            </div>
+            <div class="site-footer">
+                <span>Last poll: ${formatTime(s.last_poll)}</span>
+                <span>${s.devices_reachable}/${s.total_devices} reachable</span>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function renderTable(sites) {
+    const tbody = document.getElementById('sitesTableBody');
+    if (!sites.length) { tbody.innerHTML = '<tr><td colspan="9" class="no-data">No sites match filter</td></tr>'; return; }
+
+    tbody.innerHTML = sites.map(s => {
+        const roles = [
+            s.core_devices > 0 ? `<span class="role-badge role-core">${s.core_devices}C</span>` : '',
+            s.edge_devices > 0 ? `<span class="role-badge role-edge">${s.edge_devices}E</span>` : '',
+            s.peering_devices > 0 ? `<span class="role-badge role-peering">${s.peering_devices}P</span>` : '',
+            s.handoff_devices > 0 ? `<span class="role-badge role-handoff">${s.handoff_devices}H</span>` : '',
+        ].filter(Boolean).join(' ');
+
+        return `<tr onclick="openSiteModal('${s.location.replace(/'/g,"\\'")}')">
+            <td><strong>${s.location}</strong></td>
+            <td><span class="health-badge ${s.health}">${healthIcon(s.health)} ${s.health}</span></td>
+            <td>${s.total_devices}</td>
+            <td>${s.total_interfaces}</td>
+            <td style="display:flex;gap:4px;flex-wrap:wrap">${roles || '-'}</td>
+            <td style="color:${latencyColor(s.avg_latency)}">${s.avg_latency > 0 ? s.avg_latency + ' ms' : 'N/A'}</td>
+            <td style="color:${lossColor(s.avg_loss)}">${s.avg_loss}%</td>
+            <td style="color:${s.anomaly_count > 0 ? '#f59e0b' : '#10b981'}">${s.anomaly_count}</td>
+            <td>${formatTime(s.last_poll)}</td>
+        </tr>`;
+    }).join('');
+}
+
+function setFilter(f) {
+    currentFilter = f;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === f));
+    renderSites();
+}
+
+function setView(v) {
+    currentView = v;
+    document.getElementById('gridView').style.display = v === 'grid' ? 'block' : 'none';
+    document.getElementById('tableView').style.display = v === 'table' ? 'block' : 'none';
+    document.getElementById('gridViewBtn').classList.toggle('active', v === 'grid');
+    document.getElementById('tableViewBtn').classList.toggle('active', v === 'table');
+    renderSites();
+}
+
+async function openSiteModal(location) {
+    const site = allSites.find(s => s.location === location);
+    if (!site) return;
+
+    document.getElementById('modalSiteName').textContent = '📍 ' + site.location;
+    document.getElementById('modalSiteSubtitle').textContent =
+        `${site.total_devices} devices • ${site.total_interfaces} interfaces • Health: ${site.health}`;
+
+    document.getElementById('modalStats').innerHTML = `
+        <div class="modal-stat"><div class="ms-val">${site.total_devices}</div><div class="ms-lbl">Total Devices</div></div>
+        <div class="modal-stat"><div class="ms-val">${site.total_interfaces}</div><div class="ms-lbl">Interfaces</div></div>
+        <div class="modal-stat"><div class="ms-val" style="color:${latencyColor(site.avg_latency)}">${site.avg_latency > 0 ? site.avg_latency + ' ms' : 'N/A'}</div><div class="ms-lbl">Avg Latency</div></div>
+        <div class="modal-stat"><div class="ms-val" style="color:${lossColor(site.avg_loss)}">${site.avg_loss}%</div><div class="ms-lbl">Packet Loss</div></div>
+        <div class="modal-stat"><div class="ms-val" style="color:${site.devices_down > 0 ? '#ef4444' : '#10b981'}">${site.devices_down}</div><div class="ms-lbl">Devices Down</div></div>
+        <div class="modal-stat"><div class="ms-val" style="color:${site.anomaly_count > 0 ? '#f59e0b' : '#10b981'}">${site.anomaly_count}</div><div class="ms-lbl">Anomalies 24h</div></div>
+    `;
+
+    document.getElementById('modalDeviceList').innerHTML = '<div class="loading"><div class="spinner"></div>Loading devices...</div>';
+    document.getElementById('siteModal').style.display = 'block';
+
+    try {
+        const res = await fetch(`/api/devices?location=${encodeURIComponent(location)}`, {credentials: 'include'});
+        const data = await res.json();
+        const devices = (data.devices || data.data || []).filter(d => d.is_active);
+
+        if (!devices.length) {
+            document.getElementById('modalDeviceList').innerHTML = '<div class="no-data">No devices found</div>';
+            return;
+        }
+
+        document.getElementById('modalDeviceList').innerHTML = `
+            <table>
+                <thead><tr>
+                    <th>Hostname</th><th>IP</th><th>Type</th><th>Role</th><th>Category</th>
+                </tr></thead>
+                <tbody>${devices.map(d => `
+                    <tr onclick="window.location.href='/?device=${d.id}'" title="View in main dashboard">
+                        <td><span class="dot dot-green"></span>${d.hostname}</td>
+                        <td style="font-family:monospace">${d.ip_address}</td>
+                        <td>${d.device_type || '-'}</td>
+                        <td>${d.role || '-'}</td>
+                        <td>${d.device_category || '-'}</td>
+                    </tr>`).join('')}
+                </tbody>
+            </table>`;
+    } catch(e) {
+        document.getElementById('modalDeviceList').innerHTML = `<div class="no-data">Error: ${e.message}</div>`;
+    }
+}
+
+function closeModal() {
+    document.getElementById('siteModal').style.display = 'none';
+}
+
+document.getElementById('siteModal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+});
+
+function startCountdown() {
+    clearInterval(refreshTimer);
+    countdown = 60;
+    refreshTimer = setInterval(() => {
+        countdown--;
+        document.getElementById('refreshCountdown').textContent = `Auto-refresh in ${countdown}s`;
+        if (countdown <= 0) { loadData(); }
+    }, 1000);
+}
+
+// Init
+loadData();
+</script>
+</body>
+</html>
