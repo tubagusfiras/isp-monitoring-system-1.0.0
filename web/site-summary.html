@@ -558,7 +558,7 @@ async function openSiteModal(location) {
                     <th>Hostname</th><th>IP</th><th>Type</th><th>Role</th><th>Category</th>
                 </tr></thead>
                 <tbody>${devices.map(d => `
-                    <tr onclick="window.location.href='/?device=${d.id}'" title="View in main dashboard">
+                    <tr onclick="sessionStorage.setItem('openDevice','${d.id}');window.location.href='/'" title="View in main dashboard">
                         <td><span class="dot dot-green"></span>${d.hostname}</td>
                         <td style="font-family:monospace">${d.ip_address}</td>
                         <td>${d.device_type || '-'}</td>

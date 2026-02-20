@@ -1299,15 +1299,16 @@
                 <button class="modal-close" onclick="app.closeDetailModal()">×</button>
             </div>
             <div class="detail-stats" id="detailStats"></div>
-            <div class="time-range-selector">
+            <div class="time-range-selector" style="display:flex;align-items:center;gap:6px;">
                 <button class="time-btn" onclick="app.changeTimeRange(1, event)">1h</button>
                 <button class="time-btn active" onclick="app.changeTimeRange(4, event)">4h</button>
                 <button class="time-btn" onclick="app.changeTimeRange(6, event)">6h</button>
                 <button class="time-btn" onclick="app.changeTimeRange(24, event)">24h</button>
                 <button class="time-btn" onclick="app.changeTimeRange(168, event)">7d</button>
+                <button class="time-btn" onclick="app.resetZoom()" style="margin-left:8px;background:rgba(239,68,68,0.2);border-color:rgba(239,68,68,0.4);" title="Reset Zoom">🔍 Reset</button>
             </div>
             <div class="chart-wrapper">
-                <div class="detail-chart"><canvas id="detailChart"></canvas></div>
+                <div class="detail-chart" style="position:relative;cursor:crosshair;"><canvas id="detailChart"></canvas></div>
                 <div class="chart-legend">
                     <div class="legend-item"><div class="legend-color" style="background: #60a5fa;"></div><span>Latency (ms)</span></div>
                     <div class="legend-item"><div class="legend-color" style="background: #ef4444;"></div><span>Packet Loss (%)</span></div>
@@ -2306,8 +2307,14 @@
                                 bodyFont: { size: 12 }
                             },
                             zoom: {
-                                zoom: { wheel: { enabled: true }, mode: 'x' },
-                                pan: { enabled: true, mode: 'x' }
+                                zoom: {
+                                    wheel: { enabled: true, speed: 0.1 },
+                                    drag: { enabled: false },
+                                    pinch: { enabled: false },
+                                    mode: 'x'
+                                },
+                                pan: { enabled: true, mode: 'x', threshold: 5 },
+                                limits: { x: { minRange: 60000 } }
                             }
                         },
                         scales: {
@@ -2368,6 +2375,9 @@
                 });
             }
 
+            function resetZoom() {
+                if (detailChart) detailChart.resetZoom();
+            }
             async function changeTimeRange(hours, evt) {
                 currentTimeRange = hours;
                 document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
@@ -2756,7 +2766,10 @@
                 else if (currentTab === 'manage') loadManageDevices();
             }
 
+            var _mouseDownTarget = null;
+            document.addEventListener('mousedown', function(e){ _mouseDownTarget = e.target; });
             window.onclick = function(event) {
+                if (_mouseDownTarget !== event.target) return; // drag, skip
                 if (event.target == document.getElementById('deviceModal')) closeModal();
                 if (event.target == document.getElementById('detailModal')) closeDetailModal();
                 if (event.target == document.getElementById('connectionModal')) closeConnectionModal();
@@ -2892,6 +2905,14 @@
                 setTimeout(() => { if (typeof window.initPerformanceMonitor === 'function') { console.log('Auto-init performance...'); window.initPerformanceMonitor(); } }, 2000);
                 loadInterfaceDevices();
                 RefreshManager.start('dashboard');
+        // Auto-open device dari site-summary
+        var openDeviceId = sessionStorage.getItem('openDevice');
+        if (openDeviceId) {
+            sessionStorage.removeItem('openDevice');
+            setTimeout(function() {
+                app.openDeviceDetail(parseInt(openDeviceId));
+            }, 1500);
+        }
             }
 
             document.addEventListener('DOMContentLoaded', function() {
@@ -4534,7 +4555,7 @@ function calc95th(arr) {
             return {
                 switchTab, loadDashboard, loadDeviceCards, renderDeviceLatencyChart, collectSingleDevice, testDeviceSNMP, filterDeviceMonitoring, renderMonitorTable, sortMonitorDevices, loadTopology, loadAnomalies, searchAnomalies, triggerCollection, pollCollectionStatus, cancelCollection, toggleDeviceList, filterDeviceList, selectDevice, setQuickRange, closeCustomPicker, applyCustomRange,
                 loadManageDevices, filterDeviceCategory, renderDeviceTable, openAddModal, closeModal, editDevice, deleteDevice, saveDevice,
-                openDeviceDetail, closeDetailModal, changeTimeRange, refreshData,
+                openDeviceDetail, closeDetailModal, changeTimeRange, resetZoom, refreshData,
                 loadIPConflicts, loadInterfaceDevices, loadInterfaces, searchInterfaces, filterInterfaces, sortInterfaces, refreshInterfaces, openInterfaceDetail, closeInterfaceModal, openRealtimeWindow, switchGraphTab, startRealtimePolling, stopRealtimePolling, changeRealtimeInterval, changeRealtimeWindow, switchChartType, switchInterfaceView, toggleGraphAutoRefresh, updateInterfaceStats, formatBytes, formatBandwidth, renderInterfaceTable, searchIPInventory, resolveConflict, runIPScan,
                 openAddConnectionModal, closeConnectionModal, saveConnection, deleteConnection,
                 openTopologyFullscreen, closeTopologyFullscreen, toggleTopologyLayout, filterTopologyCategory, fitTopology, runLLDPDiscovery,

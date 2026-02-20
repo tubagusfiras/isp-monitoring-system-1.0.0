@@ -98,10 +98,9 @@
                 datasets
             },
             options: {
-                responsive: true,
+                responsive: false,
                 maintainAspectRatio: false,
                 animation: false,
-                layout: { padding: 0 },
                 scales: {
                     x: {
                         grid: { color: 'rgba(255,255,255,0.05)' },
