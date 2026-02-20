@@ -641,6 +641,7 @@
                         <div id="cpuBar" style="height:100%;border-radius:6px;background:linear-gradient(90deg,#10b981,#34d399);width:0%;transition:width 0.5s;"></div>
                     </div>
                     <div style="font-size: 12px; color: rgba(255,255,255,0.4);">Load Average: <span id="cpuLoad" style="color:rgba(255,255,255,0.7)">-</span></div>
+                    <canvas id="cpuGauge" width="150" height="150" style="margin:10px auto;display:block;"></canvas>
                 </div>
                 <div class="stat-card" style="padding: 25px;">
                     <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">&#x1F4BE; Memory Usage</div>
@@ -649,6 +650,7 @@
                         <div id="memBar" style="height:100%;border-radius:6px;background:linear-gradient(90deg,#3b82f6,#60a5fa);width:0%;transition:width 0.5s;"></div>
                     </div>
                     <div style="font-size: 12px; color: rgba(255,255,255,0.4);"><span id="memUsed" style="color:rgba(255,255,255,0.7)">0</span> / <span id="memTotal">0</span> GB used</div>
+                    <canvas id="memGauge" width="150" height="150" style="margin:10px auto;display:block;"></canvas>
                 </div>
                 <div class="stat-card" style="padding: 25px;">
                     <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">&#x1F4BF; Disk Usage</div>
@@ -657,6 +659,7 @@
                         <div id="diskBar" style="height:100%;border-radius:6px;background:linear-gradient(90deg,#f59e0b,#fbbf24);width:0%;transition:width 0.5s;"></div>
                     </div>
                     <div style="font-size: 12px; color: rgba(255,255,255,0.4);"><span id="diskUsed" style="color:rgba(255,255,255,0.7)">0</span> / <span id="diskTotal">0</span> GB used</div>
+                    <canvas id="diskGauge" width="150" height="150" style="margin:10px auto;display:block;"></canvas>
                 </div>
             </div>
             
