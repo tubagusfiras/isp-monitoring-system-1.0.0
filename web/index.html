@@ -3418,6 +3418,11 @@
                     const data = await res.json();
                     if (data.data && data.data.running) {
                         showToast('🔍 Scanner sedang berjalan di background...', 'info');
+                        // Hitung progress berdasarkan waktu elapsed
+                        if (data.data.started_at) {
+                            const elapsed = (Date.now() - new Date(data.data.started_at).getTime()) / 1000;
+                            scannerProgress = Math.min((elapsed / SCANNER_EST_SECONDS) * 90, 89);
+                        }
                         startScannerPolling();
                     }
                 } catch(e) {}
