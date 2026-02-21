@@ -12,30 +12,29 @@
     <script>
     // === DELETE ANOMALY FUNCTION (Global) ===
     window.deleteAnomaly = async function(anomalyId) {
-        if (!confirm('Delete this anomaly record?')) return;
-        
-        try {
-            const res = await fetch('/api/anomalies/' + anomalyId, { 
-                method: 'DELETE',
-                credentials: 'include'
-            });
-            const data = await res.json();
-            
-            if (data.success) {
-                // Reload anomalies
-                if (typeof app !== "undefined" && typeof app.loadAnomalies === 'function') {
-                    app.loadAnomalies();
+        showConfirm('Delete this anomaly record?', async () => {
+            try {
+                const res = await fetch('/api/anomalies/' + anomalyId, { 
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    showToast('Anomaly deleted', 'success');
+                    if (typeof app !== "undefined" && typeof app.loadAnomalies === 'function') {
+                        app.loadAnomalies();
+                    } else {
+                        location.reload();
+                    }
                 } else {
-                    // Fallback - force page reload of anomalies
-                    location.reload();
+                    showToast('Error: ' + (data.error || 'Delete failed'), 'error');
                 }
-            } else {
-                alert('Error: ' + (data.error || 'Delete failed'));
+            } catch (e) {
+                showToast('Connection error', 'error');
+                console.error('Delete anomaly error:', e);
             }
-        } catch (e) {
-            alert('Connection error');
-            console.error('Delete anomaly error:', e);
-        }
+        });
     };
     console.log('✅ deleteAnomaly function loaded');
     // Open content realtime monitor
@@ -2205,23 +2204,24 @@
             }
 
             async function runLLDPDiscovery() {
-                if (!confirm('Run LLDP/CDP neighbor discovery on all devices? This may take a few minutes.')) return;
-                try {
-                    showToast('Starting LLDP discovery...', 'info');
-                    const res = await fetch(`${API_URL}/topology/discover`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                    const data = await res.json();
-                    if (data.success) {
-                        showToast(`Discovery complete! ${data.message || ''}`, 'success');
-                        loadTopology();
-                    } else {
-                        showToast('Discovery failed: ' + (data.error || 'Unknown error'), 'error');
+                showConfirm('Run LLDP/CDP neighbor discovery on all devices? This may take a few minutes.', async () => {
+                    try {
+                        showToast('Starting LLDP discovery...', 'info');
+                        const res = await fetch(`${API_URL}/topology/discover`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            showToast(`Discovery complete! ${data.message || ''}`, 'success');
+                            loadTopology();
+                        } else {
+                            showToast('Discovery failed: ' + (data.error || 'Unknown error'), 'error');
+                        }
+                    } catch (e) {
+                        showToast('Discovery request failed', 'error');
                     }
-                } catch (e) {
-                    showToast('Discovery request failed', 'error');
-                }
+                });
             }
 
             
@@ -2270,7 +2270,7 @@
                     document.getElementById('connectionForm').reset();
                     document.getElementById('connectionModal').style.display = 'block';
                 } catch (e) {
-                    alert('Error loading devices');
+                    showToast('Error loading devices', 'error');
                 }
             }
 
@@ -2302,29 +2302,31 @@
                     const data = await res.json();
                     if (data.success) {
                         closeConnectionModal();
+                        showToast('Connection saved', 'success');
                         loadTopology();
                     } else {
-                        alert('Error: ' + data.error);
+                        showToast('Error: ' + data.error, 'error');
                     }
                 } catch (e) {
-                    alert('Error saving connection');
+                    showToast('Error saving connection', 'error');
                 }
             }
 
             async function deleteConnection(id) {
-                if (!confirm('Delete this connection?')) return;
-                
-                try {
-                    const res = await fetch(`${API_URL}/connections/${id}`, { method: 'DELETE' });
-                    const data = await res.json();
-                    if (data.success) {
-                        loadTopology();
-                    } else {
-                        alert('Error: ' + data.error);
+                showConfirm('Delete this connection?', async () => {
+                    try {
+                        const res = await fetch(`${API_URL}/connections/${id}`, { method: 'DELETE' });
+                        const data = await res.json();
+                        if (data.success) {
+                            showToast('Connection deleted', 'success');
+                            loadTopology();
+                        } else {
+                            showToast('Error: ' + data.error, 'error');
+                        }
+                    } catch (e) {
+                        showToast('Error deleting connection', 'error');
                     }
-                } catch (e) {
-                    alert('Error deleting connection');
-                }
+                });
             }
 
             async function openDeviceDetail(deviceId) {
@@ -2822,7 +2824,7 @@
                         document.getElementById('deviceModal').style.display = 'block';
                     }
                 } catch (e) {
-                    alert('Error loading device');
+                    showToast('Error loading device', 'error');
                 }
             }
 
@@ -2874,13 +2876,14 @@
                     const data = await res.json();
                     if (data.success) {
                         closeModal();
+                        showToast('Device saved', 'success');
                         loadManageDevices();
                         loadDashboard();
                     } else {
-                        alert('Error: ' + data.error);
+                        showToast('Error: ' + data.error, 'error');
                     }
                 } catch (e) {
-                    alert('Error saving');
+                    showToast('Error saving', 'error');
                 }
             }
 
@@ -3287,22 +3290,23 @@
             }
             
             async function resolveConflict(conflictId) {
-                if (!confirm('Mark this conflict as resolved?')) return;
-                
-                try {
-                    const res = await fetch(`${API_URL}/ip-conflicts/${conflictId}/resolve`, {
-                        method: 'POST'
-                    });
-                    const data = await res.json();
-                    
-                    if (data.success) {
-                        loadIPConflicts();
-                    } else {
-                        alert('Error: ' + data.error);
+                showConfirm('Mark this conflict as resolved?', async () => {
+                    try {
+                        const res = await fetch(`${API_URL}/ip-conflicts/${conflictId}/resolve`, {
+                            method: 'POST'
+                        });
+                        const data = await res.json();
+                        
+                        if (data.success) {
+                            showToast('Conflict resolved', 'success');
+                            loadIPConflicts();
+                        } else {
+                            showToast('Error: ' + data.error, 'error');
+                        }
+                    } catch (e) {
+                        showToast('Error resolving conflict', 'error');
                     }
-                } catch (e) {
-                    alert('Error resolving conflict');
-                }
+                });
             }
             
             async function runIPScan() {
@@ -4455,32 +4459,32 @@ function calc95th(arr) {
             }
             
             async function collectSingleDevice(deviceId, hostname) {
-                if (!confirm(`Start collection for ${hostname}?`)) return;
-                
-                try {
-                    const btn = event.target;
-                    btn.disabled = true;
-                    btn.textContent = '⏳ Collecting...';
-                    
-                    const res = await fetch(`${API_URL}/devices/${deviceId}/collect`, {
-                        method: 'POST'
-                    });
-                    const data = await res.json();
-                    
-                    if (data.success) {
-                        showToast(`✅ ${data.message}`, 'success');
-                        setTimeout(() => loadDeviceCards(), 3000);
-                    } else {
-                        showToast(`❌ ${data.error}`, 'error');
+                showConfirm(`Start collection for ${hostname}?`, async () => {
+                    try {
+                        const btn = event.target;
+                        btn.disabled = true;
+                        btn.textContent = '⏳ Collecting...';
+                        
+                        const res = await fetch(`${API_URL}/devices/${deviceId}/collect`, {
+                            method: 'POST'
+                        });
+                        const data = await res.json();
+                        
+                        if (data.success) {
+                            showToast(`✅ ${data.message}`, 'success');
+                            setTimeout(() => loadDeviceCards(), 3000);
+                        } else {
+                            showToast(`❌ ${data.error}`, 'error');
+                        }
+                        
+                        btn.disabled = false;
+                        btn.textContent = '📊 Collect';
+                    } catch (e) {
+                        showToast('❌ Collection failed', 'error');
+                        event.target.disabled = false;
+                        event.target.textContent = '📊 Collect';
                     }
-                    
-                    btn.disabled = false;
-                    btn.textContent = '📊 Collect';
-                } catch (e) {
-                    showToast('❌ Collection failed', 'error');
-                    event.target.disabled = false;
-                    event.target.textContent = '📊 Collect';
-                }
+                });
             }
             
             async function testDeviceSNMP(deviceId, hostname) {
@@ -4884,17 +4888,18 @@ function calc95th(arr) {
             }
 
             async function deleteContentTarget(id, name) {
-                if (!confirm(`Delete target "${name}"? All historical data will be lost.`)) return;
-                try {
-                    const res = await fetch(`/api/content-targets/${id}`, { method: 'DELETE', credentials: 'include' });
-                    const data = await res.json();
-                    if (data.success) {
-                        showToast('Target deleted');
-                        loadContentTargets();
-                    } else {
-                        showToast(data.error || 'Failed to delete', 'error');
-                    }
-                } catch(e) { showToast('Error deleting target', 'error'); }
+                showConfirm(`Delete target "${name}"? All historical data will be lost.`, async () => {
+                    try {
+                        const res = await fetch(`/api/content-targets/${id}`, { method: 'DELETE', credentials: 'include' });
+                        const data = await res.json();
+                        if (data.success) {
+                            showToast('Target deleted', 'success');
+                            loadContentTargets();
+                        } else {
+                            showToast(data.error || 'Failed to delete', 'error');
+                        }
+                    } catch(e) { showToast('Error deleting target', 'error'); }
+                });
             }
 
             return {
