@@ -12,7 +12,7 @@
     <script>
     // === DELETE ANOMALY FUNCTION (Global) ===
     window.deleteAnomaly = async function(anomalyId) {
-        showConfirm('Delete this anomaly record?', async () => {
+        showConfirm('Hapus Anomaly', 'Yakin ingin menghapus anomaly record ini?', async () => {
             try {
                 const res = await fetch('/api/anomalies/' + anomalyId, { 
                     method: 'DELETE',
@@ -2204,7 +2204,7 @@
             }
 
             async function runLLDPDiscovery() {
-                showConfirm('Run LLDP/CDP neighbor discovery on all devices? This may take a few minutes.', async () => {
+                showConfirm('Auto-Discover LLDP', 'Run LLDP/CDP neighbor discovery pada semua device? Proses ini memakan beberapa menit.', async () => {
                     try {
                         showToast('Starting LLDP discovery...', 'info');
                         const res = await fetch(`${API_URL}/topology/discover`, {
@@ -2313,7 +2313,7 @@
             }
 
             async function deleteConnection(id) {
-                showConfirm('Delete this connection?', async () => {
+                showConfirm('Hapus Connection', 'Yakin ingin menghapus connection ini?', async () => {
                     try {
                         const res = await fetch(`${API_URL}/connections/${id}`, { method: 'DELETE' });
                         const data = await res.json();
@@ -3290,7 +3290,7 @@
             }
             
             async function resolveConflict(conflictId) {
-                showConfirm('Mark this conflict as resolved?', async () => {
+                showConfirm('Resolve Conflict', 'Tandai IP conflict ini sebagai resolved?', async () => {
                     try {
                         const res = await fetch(`${API_URL}/ip-conflicts/${conflictId}/resolve`, {
                             method: 'POST'
@@ -4459,7 +4459,7 @@ function calc95th(arr) {
             }
             
             async function collectSingleDevice(deviceId, hostname) {
-                showConfirm(`Start collection for ${hostname}?`, async () => {
+                showConfirm('Start Collection', `Jalankan SNMP collection untuk ${hostname}?`, async () => {
                     try {
                         const btn = event.target;
                         btn.disabled = true;
@@ -4888,7 +4888,7 @@ function calc95th(arr) {
             }
 
             async function deleteContentTarget(id, name) {
-                showConfirm(`Delete target "${name}"? All historical data will be lost.`, async () => {
+                showConfirm('Hapus Target', `Hapus target "${name}"? Semua data history akan ikut terhapus.`, async () => {
                     try {
                         const res = await fetch(`/api/content-targets/${id}`, { method: 'DELETE', credentials: 'include' });
                         const data = await res.json();
