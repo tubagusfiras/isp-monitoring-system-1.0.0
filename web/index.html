@@ -415,6 +415,11 @@
         .legend-item { display: flex; align-items: center; gap: 8px; }
         .legend-color { width: 20px; height: 3px; border-radius: 2px; }
         #topologyGraph { height: 500px; background: rgba(0, 0, 0, 0.2); border-radius: 10px; }
+        @keyframes scannerAnim {
+            0% { transform: translateX(-100%); }
+            50% { transform: translateX(0%); }
+            100% { transform: translateX(100%); }
+        }
         .content-target-card {
             background: rgba(255,255,255,0.08);
             backdrop-filter: blur(10px);
@@ -1144,7 +1149,6 @@
         
 
         <div id="ipConflictsTab" class="tab-content" style="display: none;">
-<!-- REPLACED BY CLAUDE -->
             <!-- IP Conflicts Dashboard -->
             <div class="stats-grid" style="margin-bottom: 25px;">
                 <div class="stat-card" style="border-left: 4px solid #ef4444;">
@@ -1177,19 +1181,20 @@
             </div>
             <div class="controls">
                 <button class="btn btn-primary" onclick="app.loadIPConflicts()">🔄 Refresh Data</button>
-                <button class="btn btn-success" onclick="app.runIPScan()">🤖 Run Scanner Now</button>
-                <p style="color: rgba(255,255,255,0.7); font-size: 13px; margin: 0; flex: 1; text-align: right;">💡 Auto-scan runs hourly via cron</p>
+                <button class="btn btn-success" onclick="app.runIPScan()">🔍 Run Scanner Now</button>
+                <p style="color: rgba(255,255,255,0.7); font-size: 13px; margin: 0; flex: 1; text-align: right;">💡 Auto-scan runs daily via cron</p>
             </div>
-<!-- REPLACED BY CLAUDE -->
-<!-- REPLACED BY CLAUDE -->
-<!-- REPLACED BY CLAUDE -->
-<!-- REPLACED BY CLAUDE -->
-<!-- REPLACED BY CLAUDE -->
-<!-- REPLACED BY CLAUDE -->
-<!-- REPLACED BY CLAUDE -->
-<!-- REPLACED BY CLAUDE -->
-<!-- REPLACED BY CLAUDE -->
-<!-- REPLACED BY CLAUDE -->
+            <!-- Scanner Progress Bar -->
+            <div id="scannerProgressBar" style="display:none; margin-bottom:16px; background:rgba(255,255,255,0.05); border-radius:10px; padding:14px 18px;">
+                <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+                    <span style="font-size:18px;">🔍</span>
+                    <span style="color:#e2e8f0; font-size:14px; font-weight:500;">IP Scanner sedang berjalan...</span>
+                    <span id="scannerProgressMsg" style="color:rgba(255,255,255,0.5); font-size:13px; margin-left:auto;"></span>
+                </div>
+                <div style="background:rgba(255,255,255,0.1); border-radius:99px; height:6px; overflow:hidden;">
+                    <div style="height:100%; width:100%; background:linear-gradient(90deg,#3b82f6,#8b5cf6); border-radius:99px; animation:scannerAnim 1.5s ease-in-out infinite;"></div>
+                </div>
+            </div>
 
             <h3 style="margin-bottom: 15px;">Active IP Conflicts</h3>
             <div class="device-table">
@@ -3022,7 +3027,7 @@
                 document.getElementById('contentTab').style.display = tab === 'content' ? 'block' : 'none';
                 document.getElementById('manageTab').style.display = tab === 'manage' ? 'block' : 'none';
                 if (tab === 'dashboard') { loadDashboard(); setTimeout(function(){ if(window.initPerformanceMonitor) window.initPerformanceMonitor(); }, 500); }
-                if (tab === 'ip-conflicts') loadIPConflicts();
+                if (tab === 'ip-conflicts') { loadIPConflicts(); checkScannerOnLoad(); }
                 if (tab === 'interfaces') loadInterfaceDevices();
                 if (tab === 'devices') { loadDeviceCards(); startDeviceAutoRefresh(); }
                 if (tab === 'topology') loadTopology();
@@ -3310,36 +3315,71 @@
             }
             
             async function runIPScan() {
-                // Show loading overlay
-                const overlay = document.getElementById('loadingOverlay');
                 const scanBtn = document.querySelector('button[onclick*="runIPScan"]');
-                overlay.style.display = 'flex';
-                if (scanBtn) scanBtn.disabled = true;
-                
                 try {
-                    const res = await fetch(`${API_URL}/run-scanner`, {
-                        method: 'POST'
-                    });
+                    const res = await fetch(`${API_URL}/run-scanner`, { method: 'POST' });
                     const data = await res.json();
-                    
-                    overlay.style.display = 'none';
-                    if (scanBtn) scanBtn.disabled = false;
-                    
                     if (data.success) {
-                        showToast('✅ Scanner completed successfully! Refreshing data...', 'success');
-                        setTimeout(() => {
-                            loadIPStats();
-                            loadIPConflicts();
-                        }, 2000);
+                        showToast('🔍 Scanner dimulai di background...', 'info');
+                        startScannerPolling();
                     } else {
-                        showToast('❌ Scanner failed: ' + data.error, 'error');
+                        showToast('❌ ' + (data.error || 'Gagal memulai scanner'), 'error');
                     }
                 } catch (e) {
-                    overlay.style.display = 'none';
-                    if (scanBtn) scanBtn.disabled = false;
-                    showToast('❌ Connection error. Scanner may still be running.', 'error');
-                    console.error('Scanner error:', e);
+                    showToast('❌ Connection error', 'error');
                 }
+            }
+
+            let scannerPollTimer = null;
+            function startScannerPolling() {
+                if (scannerPollTimer) clearInterval(scannerPollTimer);
+                updateScannerUI(true, 'Scanner berjalan...');
+                scannerPollTimer = setInterval(async () => {
+                    try {
+                        const res = await fetch(`${API_URL}/run-scanner/status`);
+                        const data = await res.json();
+                        const state = data.data;
+                        if (!state.running && state.finished_at) {
+                            clearInterval(scannerPollTimer);
+                            scannerPollTimer = null;
+                            updateScannerUI(false, state.message);
+                            if (state.success) {
+                                showToast('✅ ' + state.message, 'success');
+                                setTimeout(() => { loadIPStats(); loadIPConflicts(); }, 1000);
+                            } else {
+                                showToast('❌ ' + state.message, 'error');
+                            }
+                        }
+                    } catch(e) {
+                        clearInterval(scannerPollTimer);
+                        scannerPollTimer = null;
+                        updateScannerUI(false, '');
+                    }
+                }, 3000);
+            }
+
+            function updateScannerUI(running, message) {
+                const scanBtn = document.querySelector('button[onclick*="runIPScan"]');
+                const bar = document.getElementById('scannerProgressBar');
+                if (scanBtn) {
+                    scanBtn.disabled = running;
+                    scanBtn.textContent = running ? '⏳ Scanning...' : '🔍 Run Scanner Now';
+                }
+                if (bar) {
+                    bar.style.display = running ? 'block' : 'none';
+                    document.getElementById('scannerProgressMsg').textContent = message || '';
+                }
+            }
+
+            async function checkScannerOnLoad() {
+                try {
+                    const res = await fetch(`${API_URL}/run-scanner/status`);
+                    const data = await res.json();
+                    if (data.data && data.data.running) {
+                        showToast('🔍 Scanner sedang berjalan di background...', 'info');
+                        startScannerPolling();
+                    }
+                } catch(e) {}
             }
             
             function validateField(input, validator, errorMsg) {
@@ -4499,7 +4539,8 @@ function calc95th(arr) {
                     if (data.success && data.status === 'ok') {
                         showToast(`✅ ${hostname}: SNMP OK`, 'success');
                     } else {
-                        showToast(`❌ ${hostname}: ${data.message || data.error}`, 'error');
+                        const msg = data.message || 'SNMP tidak dapat diakses';
+                        showToast(`❌ ${hostname}: ${msg}`, 'error');
                     }
                     
                     btn.disabled = false;

@@ -637,25 +637,38 @@ def get_server_metrics_history():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# Scanner state (in-memory)
+_scanner_state = {'running': False, 'started_at': None, 'finished_at': None, 'success': None, 'message': ''}
+
 @app.route('/api/run-scanner', methods=['POST'])
 def run_scanner():
-    """Run IP conflict scanner"""
-    try:
-        result = subprocess.run(
-            ['python3', '/opt/isp-monitoring/scripts/ip_conflict_scanner.py'],
-            capture_output=True,
-            text=True,
-            timeout=300
-        )
-        return jsonify({
-            'success': True,
-            'message': 'Scanner executed successfully',
-            'output': result.stdout[-500:] if result.stdout else ''
-        })
-    except subprocess.TimeoutExpired:
-        return jsonify({'success': False, 'error': 'Scanner timeout (5 min limit)'}), 500
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+    """Run IP conflict scanner in background"""
+    global _scanner_state
+    if _scanner_state['running']:
+        return jsonify({'success': False, 'error': 'Scanner sudah berjalan'}), 400
+
+    import threading, datetime
+    def _run():
+        global _scanner_state
+        _scanner_state = {'running': True, 'started_at': datetime.datetime.now().isoformat(), 'finished_at': None, 'success': None, 'message': 'Scanner berjalan...'}
+        try:
+            result = subprocess.run(
+                ['python3', '/opt/isp-monitoring/scripts/ip_conflict_scanner.py'],
+                capture_output=True, text=True, timeout=300
+            )
+            _scanner_state.update({'running': False, 'finished_at': datetime.datetime.now().isoformat(), 'success': True, 'message': 'Scanner selesai'})
+        except subprocess.TimeoutExpired:
+            _scanner_state.update({'running': False, 'finished_at': datetime.datetime.now().isoformat(), 'success': False, 'message': 'Scanner timeout (5 menit)'})
+        except Exception as e:
+            _scanner_state.update({'running': False, 'finished_at': datetime.datetime.now().isoformat(), 'success': False, 'message': str(e)})
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({'success': True, 'message': 'Scanner dimulai di background'})
+
+@app.route('/api/run-scanner/status', methods=['GET'])
+def scanner_status():
+    """Get IP scanner status"""
+    return jsonify({'success': True, 'data': _scanner_state})
 
 # ============================================================================
 # INTERFACE ENDPOINTS (NEW)
@@ -997,8 +1010,10 @@ def test_device_snmp(device_id):
                 'error': result.stderr.strip()
             })
             
+    except subprocess.TimeoutExpired:
+        return jsonify({'success': True, 'status': 'error', 'message': 'SNMP timeout - device tidak merespons'}), 200
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': True, 'status': 'error', 'message': 'SNMP test gagal - cek koneksi atau community string'}), 200
 
 
 
