@@ -5125,6 +5125,44 @@ function showConfirm(title, message, onOk, icon, okLabel, okColor) {
 }
 </script>
 
+<script>
+const AI_SUGGESTED_PROMPTS = [
+    "Tampilkan device yang sedang DOWN",
+    "Berapa rata-rata latency jaringan saat ini?",
+    "Device mana yang paling banyak anomali?",
+    "Cek status interface di DC Matrix",
+    "Tampilkan anomali yang terjadi hari ini",
+    "Device mana yang packet loss tertinggi?",
+    "Ringkasan kondisi jaringan saat ini",
+    "Cek device di lokasi Bandung",
+    "Interface mana yang utilisasinya di atas 80%?",
+    "Tampilkan top 5 device dengan latency tertinggi"
+];
+
+window.toggleAISuggest = function() {
+    const panel = document.getElementById('aiSuggestPanel');
+    if (!panel) return;
+    if (panel.style.display === 'none' || panel.style.display === '') {
+        // Populate prompts
+        panel.innerHTML = AI_SUGGESTED_PROMPTS.map(p => 
+            `<button onclick="window.useAISuggest(this.textContent)" style="padding:6px 12px;background:rgba(59,130,246,0.2);border:1px solid rgba(59,130,246,0.4);border-radius:20px;color:#93c5fd;font-size:12px;cursor:pointer;transition:all 0.2s;white-space:nowrap;" onmouseover="this.style.background='rgba(59,130,246,0.4)'" onmouseout="this.style.background='rgba(59,130,246,0.2)'">${p}</button>`
+        ).join('');
+        panel.style.display = 'flex';
+    } else {
+        panel.style.display = 'none';
+    }
+};
+
+window.useAISuggest = function(text) {
+    const input = document.getElementById('aiInput');
+    if(input) {
+        input.value = text;
+        document.getElementById('aiSuggestPanel').style.display = 'none';
+        window.sendAIMessage();
+    }
+};
+</script>
+
 </body>
 </html>
 </html>
