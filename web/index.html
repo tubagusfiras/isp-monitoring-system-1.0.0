@@ -3636,18 +3636,22 @@ async function loadTopTalkers() {
                     }
                     tbody.innerHTML = data.data.map((t, idx) => {
                         const utilColor = t.utilization > 80 ? '#ef4444' : t.utilization > 60 ? '#f59e0b' : t.utilization > 40 ? '#eab308' : '#10b981';
-                        const rowBorder = t.utilization > 90 ? 'border-left: 3px solid #ef4444; background: rgba(239,68,68,0.05);'
-                            : t.utilization > 70 ? 'border-left: 3px solid #f59e0b;' : '';
-                        return `<tr style="cursor:pointer; ${rowBorder}" onclick="app.openTopTalkerDetail(${idx})">
-                            <td style="text-align:center; font-weight:bold; color: rgba(255,255,255,0.5);">${idx + 1}</td>
-                            <td>${t.hostname}</td>
-                            <td><strong>${t.interface_name}</strong></td>
-                            <td style="font-size:12px; color:rgba(255,255,255,0.6);">${t.description || '--'}</td>
-                            <td>${formatBandwidth(t.speed_mbps)}</td>
+                        const utilBg = t.utilization > 80 ? 'rgba(239,68,68,0.15)' : t.utilization > 60 ? 'rgba(245,158,11,0.15)' : t.utilization > 40 ? 'rgba(234,179,8,0.15)' : 'rgba(16,185,129,0.15)';
+                        const rowBorder = t.utilization > 90 ? 'border-left:3px solid #ef4444; background:rgba(239,68,68,0.05);'
+                            : t.utilization > 70 ? 'border-left:3px solid #f59e0b; background:rgba(245,158,11,0.03);'
+                            : 'border-left:3px solid transparent;';
+                        const rankStyle = idx === 0 ? 'color:#fbbf24; font-size:16px;' : idx === 1 ? 'color:#94a3b8; font-size:15px;' : idx === 2 ? 'color:#b45309; font-size:14px;' : 'color:rgba(255,255,255,0.3); font-size:13px;';
+                        const rankIcon = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx+1}`;
+                        return `<tr style="cursor:pointer; ${rowBorder} transition:background 0.15s;" onclick="app.openTopTalkerDetail(${idx})">
+                            <td style="text-align:center; ${rankStyle} font-weight:bold;">${rankIcon}</td>
+                            <td style="font-weight:500;">${t.hostname}</td>
+                            <td><strong style="color:#93c5fd;">${t.interface_name}</strong></td>
+                            <td style="font-size:12px; color:rgba(255,255,255,0.5); max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${t.description||''}">${t.description || '—'}</td>
+                            <td style="font-size:12px; color:rgba(255,255,255,0.6);">${formatBandwidth(t.speed_mbps)}</td>
                             <td>${renderUtilBar(t.in_mbps, t.speed_mbps, '#10b981')}</td>
                             <td>${renderUtilBar(t.out_mbps, t.speed_mbps, '#3b82f6')}</td>
                             <td><strong>${formatBandwidth(t.total_mbps)}</strong></td>
-                            <td style="color:${utilColor}; font-weight:bold;">${t.utilization}%</td>
+                            <td><span style="padding:3px 8px; border-radius:99px; background:${utilBg}; color:${utilColor}; font-weight:700; font-size:12px;">${t.utilization}%</span></td>
                         </tr>`;
                     }).join('');
                     // Store for click handler
