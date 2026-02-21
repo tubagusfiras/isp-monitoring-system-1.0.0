@@ -2139,6 +2139,13 @@ def collection_status():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/auth/me', methods=['GET'])
+def get_current_user():
+    """Get current logged in user"""
+    if session.get('authenticated'):
+        return jsonify({'success': True, 'username': session.get('username', 'admin')})
+    return jsonify({'success': False}), 401
+
 @app.route('/api/collection/errors', methods=['GET'])
 def get_collection_errors():
     """Get failed devices from last collection"""
