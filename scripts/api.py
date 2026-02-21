@@ -467,9 +467,12 @@ def get_ip_conflicts():
         conn = get_db()
         cur = conn.cursor(cursor_factory=RealDictCursor)
         cur.execute("""
-            SELECT * FROM ip_conflicts
-            WHERE is_resolved = false
-            ORDER BY detected_at DESC
+            SELECT ic.*,
+                   d1.hostname as device_hostname
+            FROM ip_conflicts ic
+            LEFT JOIN devices d1 ON ic.ip_address::text = d1.ip_address::text
+            WHERE ic.is_resolved = false
+            ORDER BY ic.detected_at DESC
             LIMIT %s
         """, (limit,))
         conflicts = cur.fetchall()

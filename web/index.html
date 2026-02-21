@@ -1202,11 +1202,11 @@
                 <table style="table-layout: fixed; width: 100%;">
                     <thead>
                         <tr>
-                            <th>IP Address</th><th>MAC Address 1</th><th>MAC Address 2</th>
+                            <th>IP Address</th><th>Device/Hostname</th><th>MAC 1</th><th>MAC 2</th>
                             <th>Severity</th><th>Sources</th><th>Detected At</th><th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="conflictTable"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
+                    <tbody id="conflictTable"><tr><td colspan="8" class="loading">Loading...</td></tr></tbody>
                 </table>
             </div>
 
@@ -3229,17 +3229,23 @@
                     const tbody = document.getElementById('conflictTable');
                     
                     if (data.data && data.data.length > 0) {
-                        tbody.innerHTML = data.data.map(c => `
+                        tbody.innerHTML = data.data.map(c => {
+                            const hostname = c.device_hostname || c.hostname_1 || c.hostname_2 || '-';
+                            const isKnownDevice = !!c.device_hostname;
+                            return `
                             <tr>
                                 <td><strong>${c.ip_address}</strong></td>
-                                <td><code>${c.mac_address_1}</code></td>
-                                <td><code>${c.mac_address_2}</code></td>
+                                <td>
+                                    ${isKnownDevice ? `<span style="color:#10b981;font-weight:600;">🖥️ ${hostname}</span>` : `<span style="color:rgba(255,255,255,0.6);font-size:12px;">${hostname}</span>`}
+                                </td>
+                                <td><code style="font-size:11px;">${c.mac_address_1 || '-'}</code></td>
+                                <td><code style="font-size:11px;">${c.mac_address_2 || '-'}</code></td>
                                 <td><span class="badge badge-critical">${c.severity}</span></td>
                                 <td style="font-size: 11px;">${c.description ? c.description.split('Sources: ')[1] || '-' : '-'}</td>
                                 <td>${new Date(c.detected_at).toLocaleString()}</td>
                                 <td><button class="btn btn-primary" style="padding: 5px 10px; font-size: 12px;" onclick="app.resolveConflict(${c.id})">Resolve</button></td>
-                            </tr>
-                        `).join('');
+                            </tr>`;
+                        }).join('');
                     } else {
                         tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No active conflicts 🎉</td></tr>';
                     }
