@@ -1185,14 +1185,15 @@
                 <p style="color: rgba(255,255,255,0.7); font-size: 13px; margin: 0; flex: 1; text-align: right;">💡 Auto-scan runs daily via cron</p>
             </div>
             <!-- Scanner Progress Bar -->
-            <div id="scannerProgressBar" style="display:none; margin-bottom:16px; background:rgba(255,255,255,0.05); border-radius:10px; padding:14px 18px;">
-                <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
-                    <span style="font-size:18px;">🔍</span>
-                    <span style="color:#e2e8f0; font-size:14px; font-weight:500;">IP Scanner sedang berjalan...</span>
-                    <span id="scannerProgressMsg" style="color:rgba(255,255,255,0.5); font-size:13px; margin-left:auto;"></span>
+            <div id="scannerProgressBar" style="display:none; margin-bottom:16px; background:rgba(59,130,246,0.08); border:1px solid rgba(59,130,246,0.2); border-radius:12px; padding:16px 20px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                    <span style="font-size:20px;">🔍</span>
+                    <span style="color:#e2e8f0; font-size:14px; font-weight:600;">IP Scanner Berjalan</span>
+                    <span id="scannerProgressMsg" style="color:rgba(255,255,255,0.5); font-size:13px;"></span>
+                    <span id="scannerProgressPct" style="margin-left:auto; color:#93c5fd; font-size:14px; font-weight:700;"></span>
                 </div>
-                <div style="background:rgba(255,255,255,0.1); border-radius:99px; height:6px; overflow:hidden;">
-                    <div style="height:100%; width:100%; background:linear-gradient(90deg,#3b82f6,#8b5cf6); border-radius:99px; animation:scannerAnim 1.5s ease-in-out infinite;"></div>
+                <div style="background:rgba(255,255,255,0.1); border-radius:99px; height:8px; overflow:hidden;">
+                    <div id="scannerProgressFill" style="height:100%; width:0%; background:linear-gradient(90deg,#3b82f6,#8b5cf6); border-radius:99px; transition:width 0.8s ease;"></div>
                 </div>
             </div>
 
@@ -3331,9 +3332,30 @@
             }
 
             let scannerPollTimer = null;
+            let scannerProgressTimer = null;
+            let scannerProgress = 0;
+            const SCANNER_EST_SECONDS = 120; // estimasi 2 menit
+
             function startScannerPolling() {
                 if (scannerPollTimer) clearInterval(scannerPollTimer);
-                updateScannerUI(true, 'Scanner berjalan...');
+                if (scannerProgressTimer) clearInterval(scannerProgressTimer);
+                scannerProgress = 0;
+                updateScannerUI(true, 'Memulai scanner...', 0);
+
+                // Simulasi progress naik perlahan sampai 90%
+                scannerProgressTimer = setInterval(() => {
+                    if (scannerProgress < 90) {
+                        scannerProgress += (90 / (SCANNER_EST_SECONDS / 1));
+                        scannerProgress = Math.min(scannerProgress, 90);
+                        const elapsed = Math.round(scannerProgress / 90 * SCANNER_EST_SECONDS);
+                        const msg = elapsed < 30 ? 'Scanning subnet...' :
+                                    elapsed < 60 ? 'Mendeteksi konflik IP...' :
+                                    elapsed < 90 ? 'Memproses hasil...' : 'Hampir selesai...';
+                        updateScannerUI(true, msg, scannerProgress);
+                    }
+                }, 1000);
+
+                // Poll status setiap 3 detik
                 scannerPollTimer = setInterval(async () => {
                     try {
                         const res = await fetch(`${API_URL}/run-scanner/status`);
@@ -3341,24 +3363,32 @@
                         const state = data.data;
                         if (!state.running && state.finished_at) {
                             clearInterval(scannerPollTimer);
+                            clearInterval(scannerProgressTimer);
                             scannerPollTimer = null;
-                            updateScannerUI(false, state.message);
-                            if (state.success) {
-                                showToast('✅ ' + state.message, 'success');
-                                setTimeout(() => { loadIPStats(); loadIPConflicts(); }, 1000);
-                            } else {
-                                showToast('❌ ' + state.message, 'error');
-                            }
+                            scannerProgressTimer = null;
+                            // Jump ke 100%
+                            updateScannerUI(true, 'Selesai!', 100);
+                            setTimeout(() => {
+                                updateScannerUI(false, '', 0);
+                                if (state.success) {
+                                    showToast('✅ ' + state.message, 'success');
+                                    setTimeout(() => { loadIPStats(); loadIPConflicts(); }, 500);
+                                } else {
+                                    showToast('❌ ' + state.message, 'error');
+                                }
+                            }, 800);
                         }
                     } catch(e) {
                         clearInterval(scannerPollTimer);
+                        clearInterval(scannerProgressTimer);
                         scannerPollTimer = null;
-                        updateScannerUI(false, '');
+                        scannerProgressTimer = null;
+                        updateScannerUI(false, '', 0);
                     }
                 }, 3000);
             }
 
-            function updateScannerUI(running, message) {
+            function updateScannerUI(running, message, percent) {
                 const scanBtn = document.querySelector('button[onclick*="runIPScan"]');
                 const bar = document.getElementById('scannerProgressBar');
                 if (scanBtn) {
@@ -3367,7 +3397,11 @@
                 }
                 if (bar) {
                     bar.style.display = running ? 'block' : 'none';
+                    const pct = Math.round(percent || 0);
                     document.getElementById('scannerProgressMsg').textContent = message || '';
+                    document.getElementById('scannerProgressPct').textContent = running ? pct + '%' : '';
+                    const fill = document.getElementById('scannerProgressFill');
+                    if (fill) fill.style.width = pct + '%';
                 }
             }
 
