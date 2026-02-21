@@ -1829,7 +1829,8 @@
                     const arrow = c.key === 'actions' ? '' : `<span class="sort-arrow">${sorted ? (monitorSort.dir === 'asc' ? ' ↑' : ' ↓') : ' ↕'}</span>`;
                     const cls = sorted ? 'sorted' : '';
                     const onclick = c.key === 'actions' ? '' : `onclick="app.sortMonitorDevices('${c.key}')"`;
-                    return `<th class="${cls}" ${onclick} style="width:${c.width||'auto'}">${c.label}${arrow}</th>`;
+                    const align = ['hostname','ip','location'].includes(c.key) ? 'left' : 'center';
+                    return `<th class="${cls}" ${onclick} style="width:${c.width||'auto'};text-align:${align};padding:10px 12px;">${c.label}${arrow}</th>`;
                 }).join('');
 
                 // Render rows
@@ -1861,15 +1862,15 @@
 
                     const location = d.location || '-';
                     return `<tr onclick="app.openDeviceDetail(${d.id})" style="cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='rgba(59,130,246,0.08)'" onmouseout="this.style.background=''">
-                        <td><span class="status-dot ${dotClass}" title="${d._status.toUpperCase()}"></span></td>
-                        <td style="font-weight:600;">${d.hostname}</td>
-                        <td style="font-family:monospace;font-size:12px;">${d.ip_address}</td>
-                        <td><span class="type-badge ${typeCls}">${dtype.replace('_', ' ')}</span></td>
-                        <td style="font-size:12px;color:rgba(255,255,255,0.6);">${location}</td>
-                        <td>${latencyHtml}</td>
-                        <td>${lossHtml}</td>
-                        <td style="font-size:12px;color:rgba(255,255,255,0.5);">${lastSeen}</td>
-                        <td onclick="event.stopPropagation();" style="display:flex;gap:4px;">
+                        <td style="text-align:center;padding:10px 12px;"><span class="status-dot ${dotClass}" title="${d._status.toUpperCase()}"></span></td>
+                        <td style="font-weight:600;padding:10px 12px;">${d.hostname}</td>
+                        <td style="font-family:monospace;font-size:12px;padding:10px 12px;">${d.ip_address}</td>
+                        <td style="text-align:center;padding:10px 12px;"><span class="type-badge ${typeCls}">${dtype.replace('_', ' ')}</span></td>
+                        <td style="font-size:12px;color:rgba(255,255,255,0.6);padding:10px 12px;">${location}</td>
+                        <td style="text-align:center;padding:10px 12px;">${latencyHtml}</td>
+                        <td style="text-align:center;padding:10px 12px;">${lossHtml}</td>
+                        <td style="text-align:center;font-size:12px;color:rgba(255,255,255,0.5);padding:10px 12px;">${lastSeen}</td>
+                        <td onclick="event.stopPropagation();" style="text-align:center;padding:10px 12px;display:flex;gap:4px;justify-content:center;">
                             <button class="icon-btn" title="Collect SNMP" onclick="app.collectSingleDevice(${d.id},'${d.hostname.replace(/'/g, "\\'")}')">📥</button>
                             <button class="icon-btn" title="Test SNMP" onclick="app.testDeviceSNMP(${d.id},'${d.hostname.replace(/'/g, "\\'")}')">🔌</button>
                             <button class="icon-btn" title="View Detail" onclick="event.stopPropagation();app.openDeviceDetail(${d.id});">📊</button>
