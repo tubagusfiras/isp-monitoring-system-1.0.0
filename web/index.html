@@ -1737,9 +1737,11 @@
                 showToast('Filtering: ' + status.toUpperCase() + ' (' + filtered.length + ' devices)', 'info');
             }
             function getDeviceStatus(d) {
-                if (d.ping_status === 'up') return 'up';
                 if (d.ping_status === 'down') return 'down';
                 if (d.ping_status === 'warning') return 'warning';
+                // Cek latency/loss meskipun ping_status up
+                if (d.latest_rtt > 100 || d.latest_packet_loss > 5) return 'warning';
+                if (d.ping_status === 'up') return 'up';
                 return 'unknown';
             }
 
