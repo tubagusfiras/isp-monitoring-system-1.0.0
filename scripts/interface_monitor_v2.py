@@ -406,7 +406,20 @@ def main():
                     tqdm.write(f"  ✅ [{i}/{len(devices)}] {result['hostname']}: {result['interfaces']} ifaces")
                 else:
                     failed_count += 1
-                    tqdm.write(f"  ❌ [{i}/{len(devices)}] {result['hostname']}: {result.get('error','timeout')}")
+                    err_msg = result.get('error','timeout')
+                    tqdm.write(f"  ❌ [{i}/{len(devices)}] {result['hostname']}: {err_msg}")
+                    # Log error ke DB
+                    try:
+                        err_conn = get_db()
+                        err_cur = err_conn.cursor()
+                        err_cur.execute("""
+                            INSERT INTO collection_errors (job_id, hostname, ip_address, error_message)
+                            SELECT MAX(id), %s, %s, %s FROM collection_jobs
+                        """, (result.get('hostname','?'), result.get('ip','?'), err_msg))
+                        err_conn.commit()
+                        err_cur.close()
+                        err_conn.close()
+                    except: pass
                 pbar.update(1)
     elapsed = time.time() - start_time
     

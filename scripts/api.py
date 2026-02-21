@@ -2139,6 +2139,27 @@ def collection_status():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/collection/errors', methods=['GET'])
+def get_collection_errors():
+    """Get failed devices from last collection"""
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""
+            SELECT ce.hostname, ce.ip_address, ce.error_message, ce.collected_at,
+                   d.device_type, d.location
+            FROM collection_errors ce
+            LEFT JOIN devices d ON d.hostname = ce.hostname
+            WHERE ce.job_id = (SELECT MAX(id) FROM collection_jobs)
+            ORDER BY ce.hostname
+        """)
+        errors = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True, 'data': errors, 'count': len(errors)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/collection/cancel', methods=['POST'])
 def cancel_collection():
     """Cancel collection yang sedang berjalan"""

@@ -2937,6 +2937,7 @@
                             const finished = new Date(job.finished_at);
                             lastTime.textContent = `Last collect: ${finished.toLocaleString()}`;
                             stats.textContent = `✅ ${job.success_count} devices, ${job.total_interfaces} interfaces | ❌ ${job.failed_count} failed | ⏱️ ${Math.round(job.duration_seconds/60)}m`;
+                            if (job.failed_count > 0) loadCollectionErrors();
                         } else if (job.status === 'cancelled') {
                             badge.textContent = 'CANCELLED';
                             badge.style.cssText = 'padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; background:rgba(239,68,68,0.2); color:#ef4444; border:1px solid rgba(239,68,68,0.3);';
@@ -3325,6 +3326,28 @@
                     });
                 }
             });
+            async function loadCollectionErrors() {
+                try {
+                    const res = await fetch('/api/collection/errors', {credentials:'include'});
+                    const data = await res.json();
+                    if (!data.success || !data.data.length) return;
+                    var el = document.getElementById('collectionErrors');
+                    if (!el) {
+                        el = document.createElement('div');
+                        el.id = 'collectionErrors';
+                        el.style.cssText = 'margin-top:10px;padding:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;';
+                        document.getElementById('collectionStatus').appendChild(el);
+                    }
+                    el.innerHTML = '<div style="font-size:13px;font-weight:600;color:#ef4444;margin-bottom:8px;">❌ Failed Devices ('+data.count+'):</div>' +
+                        data.data.map(function(e) {
+                            return '<div style="font-size:12px;color:rgba(255,255,255,0.7);padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">'+
+                                '<strong>'+e.hostname+'</strong> ('+e.ip_address+') — '+
+                                '<span style="color:#f59e0b;">'+e.error_message+'</span>'+
+                                (e.location ? ' <span style="color:rgba(255,255,255,0.4);">'+e.location+'</span>' : '')+
+                            '</div>';
+                        }).join('');
+                } catch(e) { console.error('Collection errors:', e); }
+            }
             function showTabLoading(tab) {
                 // Show skeleton on stat cards briefly
                 var skeletons = document.querySelectorAll('.skeleton-placeholder');
