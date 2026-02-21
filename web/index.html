@@ -1149,8 +1149,8 @@
         
 
         <div id="ipConflictsTab" class="tab-content" style="display: none;">
-            <!-- IP Conflicts Dashboard -->
-            <div class="stats-grid" style="margin-bottom: 25px;">
+            <!-- Stat Cards -->
+            <div class="stats-grid" style="margin-bottom: 20px;">
                 <div class="stat-card" style="border-left: 4px solid #ef4444;">
                     <h3>🚨 Active Conflicts</h3>
                     <div class="value" style="color: #ef4444;" id="activeConflicts">0</div>
@@ -1169,20 +1169,21 @@
                 <div class="stat-card" style="border-left: 4px solid #60a5fa;">
                     <h3>🔄 Recent Activity</h3>
                     <div class="value" style="color: #60a5fa;" id="recentIPs">0</div>
-            <!-- Category Filter -->
-            <div class="controls" style="margin-bottom: 15px;">
-                <button class="btn" style="background: rgba(239,68,68,0.8);" onclick="app.filterIPConflicts('all')">🌐 All Conflicts (<span id="conflictCountAll">0</span>)</button>
-                <button class="btn" style="background: rgba(239,68,68,0.8);" onclick="app.filterIPConflicts('core')">🔴 Core (<span id="conflictCountCore">0</span>)</button>
-                <button class="btn" style="background: rgba(245,158,11,0.8);" onclick="app.filterIPConflicts('distribution')">🟠 Distribution (<span id="conflictCountDist">0</span>)</button>
-                <button class="btn" style="background: rgba(16,185,129,0.8);" onclick="app.filterIPConflicts('access')">🟢 Access (<span id="conflictCountAccess">0</span>)</button>
-            </div>
                     <p style="font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 8px;">Last 1 hour</p>
                 </div>
             </div>
-            <div class="controls">
-                <button class="btn btn-primary" onclick="app.loadIPConflicts()">🔄 Refresh Data</button>
+
+            <!-- Controls Row -->
+            <div class="controls" style="margin-bottom: 12px;">
+                <button class="btn btn-primary" onclick="app.loadIPConflicts()">🔄 Refresh</button>
                 <button class="btn btn-success" onclick="app.runIPScan()">🔍 Run Scanner Now</button>
-                <p style="color: rgba(255,255,255,0.7); font-size: 13px; margin: 0; flex: 1; text-align: right;">💡 Auto-scan runs daily via cron</p>
+                <div style="flex:1;"></div>
+                <!-- Category Filter -->
+                <button class="btn" id="filterAll" style="background:rgba(59,130,246,0.3);border:1px solid rgba(59,130,246,0.4);color:#93c5fd;" onclick="app.filterIPConflicts('all')">All <span id="conflictCountAll">0</span></button>
+                <button class="btn" id="filterCore" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;" onclick="app.filterIPConflicts('core')">🔴 Core <span id="conflictCountCore">0</span></button>
+                <button class="btn" id="filterDist" style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);color:#fcd34d;" onclick="app.filterIPConflicts('distribution')">🟠 Distribution <span id="conflictCountDist">0</span></button>
+                <button class="btn" id="filterAccess" style="background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);color:#6ee7b7;" onclick="app.filterIPConflicts('access')">🟢 Access <span id="conflictCountAccess">0</span></button>
+                <span style="color:rgba(255,255,255,0.4); font-size:12px; align-self:center;">💡 Auto-scan daily 00:00</span>
             </div>
             <!-- Scanner Progress Bar -->
             <div id="scannerProgressBar" style="display:none; margin-bottom:16px; background:rgba(59,130,246,0.08); border:1px solid rgba(59,130,246,0.2); border-radius:12px; padding:16px 20px;">
