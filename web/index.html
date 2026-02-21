@@ -1588,13 +1588,29 @@
                     const latency = await latencyRes.json();
                     const anomalies = await anomalyRes.json();
 
-                    document.getElementById('totalDevices').textContent = stats.total_devices || 0;
-                    document.getElementById('healthyDevices').textContent = stats.healthy_devices || 0;
+                    // Trend indicators
+                    var _prev = window._dashPrev || {};
+                    function setStatWithTrend(id, val, higherIsBetter) {
+                        var el = document.getElementById(id);
+                        if(!el) return;
+                        var prev = _prev[id];
+                        var trend = '';
+                        if(prev !== undefined && val !== prev) {
+                            var up = val > prev;
+                            var good = higherIsBetter ? up : !up;
+                            trend = ' <span style="font-size:13px;color:'+(good?'#10b981':'#ef4444')+';">'+(up?'↑':'↓')+'</span>';
+                        }
+                        el.innerHTML = val + trend;
+                        _prev[id] = val;
+                    }
+                    window._dashPrev = _prev;
+                    setStatWithTrend('totalDevices', stats.total_devices || 0, true);
+                    setStatWithTrend('healthyDevices', stats.healthy_devices || 0, true);
                     if (latency.data && latency.data.length > 0) {
                         const avgRtt = latency.data.reduce((sum, d) => sum + (d.rtt_avg || 0), 0) / latency.data.length;
                         document.getElementById('avgLatency').textContent = avgRtt.toFixed(2) + ' ms';
                     }
-                    document.getElementById('anomalyCount').textContent = anomalies.data?.length || 0;
+                    setStatWithTrend('anomalyCount', anomalies.data?.length || 0, false);
                 } catch (e) {
                     console.error('Dashboard error:', e);
                     showToast('Failed to load dashboard data', 'error');
