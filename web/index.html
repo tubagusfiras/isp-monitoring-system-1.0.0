@@ -629,27 +629,31 @@
             <button class="tab-btn" onclick="app.switchTab('anomalies')">⚠️ Anomalies</button>
             <button class="tab-btn" onclick="app.switchTab('content')">🌐 Content Monitor</button>
             <button class="tab-btn" onclick="app.switchTab('ai')">🤖 AI Assistant</button>
-            <a href="/site-summary.html" class="tab-btn" style="text-decoration:none">🗺️ Site Summary</a>
+            <button class="tab-btn" onclick="window.open('/site-summary.html', '_blank')">🗺️ Site Summary ↗</button>
             <button class="tab-btn" onclick="app.switchTab('manage')">⚙️ Manage</button>
         </div>
 
         <div id="dashboardTab" class="tab-content">
             <div class="stats-grid">
-                <div class="stat-card">
-                    <h3>Total Devices <span class="tooltip-wrap"><span class="info-icon">?</span><span class="tooltip-text">Total perangkat yang terdaftar di sistem</span></span></h3>
+                <div class="stat-card" onclick="document.querySelector('.tab-btn[onclick*=devices]').click()" style="cursor:pointer;" title="View all devices">
+                    <h3>Total Devices <span class="tooltip-wrap"><span class="info-icon">?</span><span class="tooltip-text">Total perangkat yang terdaftar di sistem. Klik untuk lihat detail.</span></span></h3>
                     <div class="value" id="totalDevices">0</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:6px;">Click to view →</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card" onclick="document.querySelector('.tab-btn[onclick*=devices]').click()" style="cursor:pointer;" title="View healthy devices">
                     <h3>Healthy <span class="tooltip-wrap"><span class="info-icon">?</span><span class="tooltip-text">Perangkat dengan packet loss &lt;10% dan latency normal</span></span></h3>
                     <div class="value" style="color: #10b981;" id="healthyDevices">0</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:6px;">Click to view →</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card" onclick="document.querySelector('.tab-btn[onclick*=devices]').click()" style="cursor:pointer;" title="View device latency">
                     <h3>Avg Latency <span class="tooltip-wrap"><span class="info-icon">?</span><span class="tooltip-text">Rata-rata Round Trip Time (RTT) ke semua perangkat aktif</span></span></h3>
                     <div class="value" id="avgLatency">0 ms</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:6px;">Click to view →</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card" onclick="document.querySelector('.tab-btn[onclick*=anomalies]').click()" style="cursor:pointer;" title="View anomalies">
                     <h3>Active Anomalies <span class="tooltip-wrap"><span class="info-icon">?</span><span class="tooltip-text">Jumlah anomali yang terdeteksi dan belum di-resolve dalam 24 jam terakhir</span></span></h3>
                     <div class="value" style="color: #f59e0b;" id="anomalyCount">0</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:6px;">Click to view →</div>
                 </div>
             </div>
 
