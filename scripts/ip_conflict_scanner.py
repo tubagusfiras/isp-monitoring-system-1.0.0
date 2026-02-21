@@ -6,6 +6,8 @@ from psycopg2.extras import RealDictCursor
 from datetime import datetime, timedelta
 from pysnmp.hlapi import *
 import sys
+import socket
+import ipaddress
 
 DB_CONFIG = {
     'host': 'localhost',
@@ -302,18 +304,30 @@ def update_inventory(all_hosts):
         existing = cur.fetchone()
         
         if existing:
+            try: hostname = socket.gethostbyaddr(ip)[0]
+            except: hostname = None
+            try: subnet = str(ipaddress.ip_network(ip + '/24', strict=False))
+            except: subnet = None
             cur.execute(
-                "UPDATE ip_inventory SET last_seen = CURRENT_TIMESTAMP, is_active = true WHERE id = %s",
-                (existing['id'],)
+                """UPDATE ip_inventory SET last_seen = CURRENT_TIMESTAMP, is_active = true,
+                   hostname = COALESCE(%s, hostname), subnet = COALESCE(%s, subnet)
+                   WHERE id = %s""",
+                (hostname, subnet, existing['id'])
             )
             updated_count += 1
         else:
+            try: hostname = socket.gethostbyaddr(ip)[0]
+            except: hostname = None
+            try: subnet = str(ipaddress.ip_network(ip + '/24', strict=False))
+            except: subnet = None
             cur.execute(
-                """INSERT INTO ip_inventory (ip_address, mac_address, is_active) 
-                   VALUES (%s, %s, true)
-                   ON CONFLICT (ip_address, mac_address) DO UPDATE 
-                   SET last_seen = CURRENT_TIMESTAMP, is_active = true""",
-                (ip, mac)
+                """INSERT INTO ip_inventory (ip_address, mac_address, hostname, subnet, is_active)
+                   VALUES (%s, %s, %s, %s, true)
+                   ON CONFLICT (ip_address, mac_address) DO UPDATE
+                   SET last_seen = CURRENT_TIMESTAMP, is_active = true,
+                   hostname = COALESCE(EXCLUDED.hostname, ip_inventory.hostname),
+                   subnet = COALESCE(EXCLUDED.subnet, ip_inventory.subnet)""",
+                (ip, mac, hostname, subnet)
             )
             new_count += 1
     

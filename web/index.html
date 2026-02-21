@@ -238,9 +238,34 @@
         .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; display: none; justify-content: center; align-items: center; }
         .loading-spinner { border: 5px solid rgba(255,255,255,0.3); border-top: 5px solid #3b82f6; border-radius: 50%; width: 60px; height: 60px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .toast { position: fixed; top: 80px; right: 20px; background: rgba(16,185,129,0.95); color: #fff; padding: 15px 20px; border-radius: 8px; z-index: 3000; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+
+        /* Tooltip */
+        .tooltip-wrap { position: relative; display: inline-block; }
+        .tooltip-wrap .tooltip-text { visibility: hidden; background: rgba(0,0,0,0.9); color: #fff; font-size: 11px; border-radius: 6px; padding: 6px 10px; position: absolute; z-index: 9999; bottom: 125%; left: 50%; transform: translateX(-50%); white-space: nowrap; opacity: 0; transition: opacity 0.2s; pointer-events: none; border: 1px solid rgba(255,255,255,0.1); }
+        .tooltip-wrap .tooltip-text::after { content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: rgba(0,0,0,0.9); }
+        .tooltip-wrap:hover .tooltip-text { visibility: visible; opacity: 1; }
+        .info-icon { display: inline-block; width: 14px; height: 14px; background: rgba(255,255,255,0.2); border-radius: 50%; font-size: 9px; text-align: center; line-height: 14px; cursor: help; margin-left: 4px; color: rgba(255,255,255,0.7); }
+
+        /* Empty state */
+        .empty-state { text-align: center; padding: 50px 20px; color: rgba(255,255,255,0.5); }
+        .empty-state-icon { font-size: 48px; margin-bottom: 16px; }
+        .empty-state-title { font-size: 18px; font-weight: 600; color: rgba(255,255,255,0.7); margin-bottom: 8px; }
+        .empty-state-desc { font-size: 13px; color: rgba(255,255,255,0.4); line-height: 1.6; }
+        /* Skeleton loading */
+        .skeleton { background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .skeleton-card { height: 120px; margin-bottom: 15px; }
+        .skeleton-row { height: 44px; margin-bottom: 8px; }
+        .skeleton-text { height: 16px; margin-bottom: 8px; border-radius: 4px; }
+        /* Loading overlay per tab */
+        .tab-loading { display:none; padding: 20px; }
+        .tab-loading.show { display: block; }
+        .toast { position: fixed; top: 20px; right: 20px; background: rgba(16,185,129,0.95); color: #fff; padding: 14px 20px; border-radius: 10px; z-index: 99999; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.4); max-width: 350px; font-size: 14px; font-weight: 500; }
         .toast.error { background: rgba(239,68,68,0.95); }
-        .toast.show { display: block; animation: slideIn 0.3s ease; }
+        .toast.warning { background: rgba(245,158,11,0.95); }
+        .toast.info { background: rgba(59,130,246,0.95); }
+        .toast.show { display: flex; align-items: center; gap: 10px; animation: toastIn 0.3s ease; }
+        @keyframes toastIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         .modal {
             display: none;
@@ -592,10 +617,22 @@
 
         <div id="dashboardTab" class="tab-content">
             <div class="stats-grid">
-                <div class="stat-card"><h3>Total Devices</h3><div class="value" id="totalDevices">0</div></div>
-                <div class="stat-card"><h3>Healthy</h3><div class="value" style="color: #10b981;" id="healthyDevices">0</div></div>
-                <div class="stat-card"><h3>Avg Latency</h3><div class="value" id="avgLatency">0 ms</div></div>
-                <div class="stat-card"><h3>Active Anomalies</h3><div class="value" style="color: #f59e0b;" id="anomalyCount">0</div></div>
+                <div class="stat-card">
+                    <h3>Total Devices <span class="tooltip-wrap"><span class="info-icon">?</span><span class="tooltip-text">Total perangkat yang terdaftar di sistem</span></span></h3>
+                    <div class="value" id="totalDevices">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Healthy <span class="tooltip-wrap"><span class="info-icon">?</span><span class="tooltip-text">Perangkat dengan packet loss &lt;10% dan latency normal</span></span></h3>
+                    <div class="value" style="color: #10b981;" id="healthyDevices">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Avg Latency <span class="tooltip-wrap"><span class="info-icon">?</span><span class="tooltip-text">Rata-rata Round Trip Time (RTT) ke semua perangkat aktif</span></span></h3>
+                    <div class="value" id="avgLatency">0 ms</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Active Anomalies <span class="tooltip-wrap"><span class="info-icon">?</span><span class="tooltip-text">Jumlah anomali yang terdeteksi dan belum di-resolve dalam 24 jam terakhir</span></span></h3>
+                    <div class="value" style="color: #f59e0b;" id="anomalyCount">0</div>
+                </div>
             </div>
 
         <!-- Collection Status Panel -->
@@ -1264,14 +1301,30 @@
         </div>
 
         <div id="manageTab" class="tab-content" style="display: none;">
-            <div class="controls">
-            <!-- Category Filter -->
-            <div class="controls" style="margin-bottom: 15px;">
-                <button class="btn" style="background: rgba(239,68,68,0.8);" onclick="app.filterDeviceCategory('all')">🌐 All Devices (<span id="countAll">0</span>)</button>
-                <button class="btn" style="background: rgba(239,68,68,0.8);" onclick="app.filterDeviceCategory('core')">🔴 Core (<span id="countCore">0</span>)</button>
-                <button class="btn" style="background: rgba(245,158,11,0.8);" onclick="app.filterDeviceCategory('distribution')">🟠 Distribution (<span id="countDist">0</span>)</button>
-                <button class="btn" style="background: rgba(16,185,129,0.8);" onclick="app.filterDeviceCategory('access')">🟢 Access (<span id="countAccess">0</span>)</button>
+            <!-- Stats Row -->
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:20px;">
+                <div class="stat-card" style="padding:15px;cursor:pointer;border:2px solid transparent;" onclick="app.filterDeviceCategory('all')" id="catBtn-all">
+                    <div style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.5px;">🌐 All Devices</div>
+                    <div style="font-size:28px;font-weight:700;color:#fff;margin-top:4px;"><span id="countAll">0</span></div>
+                </div>
+                <div class="stat-card" style="padding:15px;cursor:pointer;border:2px solid transparent;" onclick="app.filterDeviceCategory('core')" id="catBtn-core">
+                    <div style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.5px;">🔴 Core</div>
+                    <div style="font-size:28px;font-weight:700;color:#ef4444;margin-top:4px;"><span id="countCore">0</span></div>
+                </div>
+                <div class="stat-card" style="padding:15px;cursor:pointer;border:2px solid transparent;" onclick="app.filterDeviceCategory('distribution')" id="catBtn-distribution">
+                    <div style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.5px;">🟠 Distribution</div>
+                    <div style="font-size:28px;font-weight:700;color:#f59e0b;margin-top:4px;"><span id="countDist">0</span></div>
+                </div>
+                <div class="stat-card" style="padding:15px;cursor:pointer;border:2px solid transparent;" onclick="app.filterDeviceCategory('access')" id="catBtn-access">
+                    <div style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.5px;">🟢 Access</div>
+                    <div style="font-size:28px;font-weight:700;color:#10b981;margin-top:4px;"><span id="countAccess">0</span></div>
+                </div>
             </div>
+            <!-- Controls Row -->
+            <div class="controls" style="margin-bottom:15px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                <input type="text" id="manageSearch" placeholder="🔍 Search hostname, IP, location..." 
+                    style="flex:1;min-width:200px;padding:8px 14px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;font-size:13px;outline:none;"
+                    oninput="app.filterDeviceCategory(window._manageCategory||'all')">
                 <button class="btn btn-primary" onclick="app.openAddModal()">➕ Add Device</button>
                 <button class="btn btn-success" onclick="app.refreshData()">🔄 Refresh</button>
             </div>
@@ -1285,6 +1338,26 @@
                     </thead>
                     <tbody id="deviceTable"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
                 </table>
+            </div>
+            <!-- Pagination -->
+            <div id="managePagination" style="display:flex;align-items:center;justify-content:space-between;margin-top:15px;padding:10px 0;">
+                <div style="font-size:13px;color:rgba(255,255,255,0.6);">
+                    Showing <span id="pageInfo">0</span> devices
+                </div>
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <button onclick="app.changePage(-1)" id="prevPageBtn" style="padding:6px 12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;cursor:pointer;font-size:13px;">← Prev</button>
+                    <span id="pageNumbers" style="display:flex;gap:4px;"></span>
+                    <button onclick="app.changePage(1)" id="nextPageBtn" style="padding:6px 12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;cursor:pointer;font-size:13px;">Next →</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,0.6);">
+                    Per page:
+                    <select onchange="app.changePageSize(this.value)" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;padding:4px 8px;font-size:13px;">
+                        <option value="10">10</option>
+                        <option value="25" selected>25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
             </div>
         </div>
     </div>
@@ -1328,8 +1401,20 @@
             </div>
             <form id="deviceForm" onsubmit="app.saveDevice(event)">
                 <input type="hidden" id="deviceId">
-                <div class="form-group"><label>Hostname *</label><input type="text" id="hostname" required></div>
-                <div class="form-group"><label>IP Address *</label><input type="text" id="ipAddress" required></div>
+                <div class="form-group">
+                    <label>Hostname *</label>
+                    <input type="text" id="hostname" required placeholder="e.g. MX204-BANDUNG"
+                        oninput="validateField(this, v => v.length >= 2, 'Min 2 characters')"
+                        style="width:100%;padding:8px 12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;font-size:13px;">
+                    <span class="field-error" id="err-hostname" style="color:#ef4444;font-size:11px;display:none;"></span>
+                </div>
+                <div class="form-group">
+                    <label>IP Address *</label>
+                    <input type="text" id="ipAddress" required placeholder="e.g. 192.168.1.1"
+                        oninput="validateField(this, v => /^(\d{1,3}\.){3}\d{1,3}$/.test(v) && v.split('.').every(o=>parseInt(o)<=255), 'Invalid IP address format')"
+                        style="width:100%;padding:8px 12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;font-size:13px;">
+                    <span class="field-error" id="err-ipAddress" style="color:#ef4444;font-size:11px;display:none;"></span>
+                </div>
                 <div class="form-group">
                     <label>Device Type *</label>
                     <select id="deviceType" required>
@@ -1484,6 +1569,7 @@
                     document.getElementById('anomalyCount').textContent = anomalies.data?.length || 0;
                 } catch (e) {
                     console.error('Dashboard error:', e);
+                    showToast('Failed to load dashboard data', 'error');
                 }
             }
 
@@ -1549,6 +1635,7 @@
                     renderMonitorTable(devices);
                 } catch (e) {
                     console.error('Device load error:', e);
+                    showToast('Failed to load devices', 'error');
                     document.getElementById('monitorTableBody').innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;" class="error">❌ Error loading devices</td></tr>';
                 } finally {
                     if (btn) { btn.disabled = false; btn.textContent = '🔄 Refresh'; }
@@ -1754,6 +1841,7 @@
                     });
                 } catch (e) {
                     console.error('Chart error:', e);
+                    showToast('Failed to render chart', 'warning');
                 }
             }
 
@@ -1789,6 +1877,7 @@
                     loadConnectionsTable();
                 } catch (e) {
                     console.error('Topology error:', e);
+                    showToast('Failed to load topology', 'error');
                 }
             }
 
@@ -2081,6 +2170,7 @@
                     }
                 } catch (e) {
                     console.error('Error:', e);
+                    showToast('An error occurred', 'error');
                 }
             }
 
@@ -2211,7 +2301,7 @@
                     const anomalyContainer = document.getElementById('detailAnomalies');
                     
                     if (deviceAnomalies.length === 0) {
-                        anomalyContainer.innerHTML = '<div class="loading">No anomalies 🎉</div>';
+                        anomalyContainer.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎉</div><div class="empty-state-title">No Anomalies</div><div class="empty-state-desc">Semua perangkat berjalan normal</div></div>';
                     } else {
                         anomalyContainer.innerHTML = deviceAnomalies.slice(0, 5).map(anomaly => `
                             <div class="anomaly-item anomaly-${anomaly.severity}">
@@ -2408,7 +2498,7 @@
             function displayAnomalies(anomalies) {
                 const container = document.getElementById('anomalyList');
                 if (!anomalies || anomalies.length === 0) {
-                    container.innerHTML = '<div class="loading">No anomalies found 🎉</div>';
+                    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✅</div><div class="empty-state-title">No Anomalies Found</div><div class="empty-state-desc">Tidak ada anomali yang terdeteksi</div></div>';
                     return;
                 }
                 container.innerHTML = anomalies.map(anomaly => `
@@ -2431,7 +2521,7 @@
                     const res = await fetch(`${API_URL}/anomalies?limit=50`);
                     const data = await res.json();
                     if (!data.data || data.data.length === 0) {
-                        document.getElementById('anomalyList').innerHTML = '<div class="loading">No anomalies 🎉</div>';
+                        document.getElementById('anomalyList').innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎉</div><div class="empty-state-title">No Anomalies</div><div class="empty-state-desc">Device ini berjalan normal</div></div>';
                         allAnomalies = [];
                         return;
                     }
@@ -2480,19 +2570,74 @@
                 }
             }
             
+            let _managePage = 1;
+            let _managePageSize = 25;
+            let _manageFiltered = [];
+
             function filterDeviceCategory(category) {
-                currentCategory = category;
+                if (category) { currentCategory = category; window._manageCategory = category; }
+                _managePage = 1;
+                ["all","core","distribution","access"].forEach(function(c) {
+                    var btn = document.getElementById("catBtn-"+c);
+                    if(btn) btn.style.borderColor = c === currentCategory ? "rgba(59,130,246,0.8)" : "transparent";
+                });
                 renderDeviceTable();
             }
-            
+
+            function changePage(dir) {
+                var maxPage = Math.ceil(_manageFiltered.length / _managePageSize);
+                _managePage = Math.max(1, Math.min(_managePage + dir, maxPage));
+                renderDeviceTable();
+            }
+
+            function goToPage(p) { _managePage = p; renderDeviceTable(); }
+
+            function changePageSize(size) {
+                _managePageSize = parseInt(size);
+                _managePage = 1;
+                renderDeviceTable();
+            }
+
             function renderDeviceTable() {
-                const tbody = document.getElementById('deviceTable');
-                const filtered = currentCategory === 'all' 
-                    ? allDevices 
+                const tbody = document.getElementById("deviceTable");
+                const search = (document.getElementById("manageSearch")||{}).value || "";
+                let filtered = currentCategory === "all"
+                    ? allDevices
                     : allDevices.filter(d => d.device_category === currentCategory);
-                
-                if (filtered.length > 0) {
-                    tbody.innerHTML = filtered.map(d => `
+                if (search.trim()) {
+                    const q = search.toLowerCase();
+                    filtered = filtered.filter(d =>
+                        (d.hostname||"").toLowerCase().includes(q) ||
+                        (d.ip_address||"").toLowerCase().includes(q) ||
+                        (d.location||"").toLowerCase().includes(q) ||
+                        (d.device_type||"").toLowerCase().includes(q)
+                    );
+                }
+                _manageFiltered = filtered;
+                var total = filtered.length;
+                var maxPage = Math.max(1, Math.ceil(total / _managePageSize));
+                if (_managePage > maxPage) _managePage = maxPage;
+                var start = (_managePage - 1) * _managePageSize;
+                var end = Math.min(start + _managePageSize, total);
+                var paginated = filtered.slice(start, end);
+                var pageInfo = document.getElementById("pageInfo");
+                if(pageInfo) pageInfo.textContent = total === 0 ? "0" : (start+1)+"-"+end+" of "+total;
+                var prev = document.getElementById("prevPageBtn");
+                var next = document.getElementById("nextPageBtn");
+                if(prev) prev.style.opacity = _managePage <= 1 ? "0.4" : "1";
+                if(next) next.style.opacity = _managePage >= maxPage ? "0.4" : "1";
+                var pn = document.getElementById("pageNumbers");
+                if(pn) {
+                    var pages = "";
+                    var sp = Math.max(1, _managePage-2);
+                    var ep = Math.min(maxPage, _managePage+2);
+                    for(var p=sp; p<=ep; p++) {
+                        pages += "<button onclick=\"app.goToPage("+p+")\" style=\"padding:4px 10px;background:"+(p===_managePage?"rgba(59,130,246,0.6)":"rgba(255,255,255,0.1)")+";border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;cursor:pointer;font-size:13px;\">"+p+"</button>";
+                    }
+                    pn.innerHTML = pages;
+                }
+                if (paginated.length > 0) {
+                    tbody.innerHTML = paginated.map(d => `
                         <tr>
                             <td>${d.id}</td>
                             <td><strong>${d.hostname}</strong></td>
@@ -2509,7 +2654,7 @@
                         </tr>
                     `).join('');
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No devices in this category</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-title">No Devices Found</div><div class="empty-state-desc">Coba ubah filter atau kata kunci pencarian</div></div></td></tr>';
                 }
             }
             
@@ -2562,21 +2707,26 @@
             }
 
             async function deleteDevice(id) {
-                if (!confirm("Delete this device? All related data will be deleted.")) return;
-                try {
+                showConfirm(
+                    'Delete Device',
+                    'Semua data terkait (latency, interface stats, anomalies) akan ikut terhapus. Tindakan ini tidak bisa di-undo!',
+                    async function() {
+                    try {
                     const res = await fetch(`${API_URL}/devices/${id}/cascade-delete`, { method: "POST", credentials: "include" });
                     const data = await res.json();
                     if (data.success) {
-                        alert("✅ Device deleted!");
+                        showToast("✅ Device deleted!");
                         loadManageDevices();
                         loadDashboard();
                     } else {
-                        alert("❌ Error: " + data.error);
+                        showToast("❌ " + data.error, "error");
                     }
                 } catch (e) {
-                    alert("❌ Connection error");
+                    showToast("❌ Connection error", "error");
                     console.error(e);
                 }
+                    }
+                );
             }
 
             async function saveDevice(e) {
@@ -2735,6 +2885,8 @@
                 currentTab = tab;
                 document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
                 event.target.classList.add('active');
+                // Show loading skeleton briefly
+                showTabLoading(tab);
                 document.getElementById('dashboardTab').style.display = tab === 'dashboard' ? 'block' : 'none';
                 document.getElementById('aiTab').style.display = tab === 'ai' ? 'block' : 'none';
                 if (tab === 'ai') { if (window.initAIAssistant) window.initAIAssistant(); }
@@ -3065,13 +3217,35 @@
                 }
             }
             
+            function validateField(input, validator, errorMsg) {
+                var errEl = document.getElementById('err-' + input.id);
+                var valid = validator(input.value.trim());
+                if (!valid && input.value.trim()) {
+                    input.style.borderColor = 'rgba(239,68,68,0.8)';
+                    if(errEl) { errEl.textContent = errorMsg; errEl.style.display = 'block'; }
+                } else {
+                    input.style.borderColor = valid ? 'rgba(16,185,129,0.8)' : 'rgba(255,255,255,0.2)';
+                    if(errEl) errEl.style.display = 'none';
+                }
+                return valid;
+            }
+            function showTabLoading(tab) {
+                // Show skeleton on stat cards briefly
+                var skeletons = document.querySelectorAll('.skeleton-placeholder');
+                skeletons.forEach(function(s){ s.style.display = 'block'; });
+                setTimeout(function(){
+                    skeletons.forEach(function(s){ s.style.display = 'none'; });
+                }, 300);
+            }
             function showToast(message, type = 'success') {
                 const toast = document.getElementById('toast');
-                toast.textContent = message;
+                const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+                toast.innerHTML = '<span>' + (icons[type]||'✅') + '</span><span>' + message + '</span>';
                 toast.className = 'toast ' + type + ' show';
-                setTimeout(() => {
+                clearTimeout(window._toastTimer);
+                window._toastTimer = setTimeout(() => {
                     toast.classList.remove('show');
-                }, 5000);
+                }, 4000);
             }
 
 
@@ -3098,6 +3272,7 @@ let allInterfaceDevices = [];
                     renderDeviceList(allInterfaceDevices);
                 } catch (e) {
                     console.error('Device load error:', e);
+                    showToast('Failed to load devices', 'error');
                 }
             }
 
@@ -4554,7 +4729,7 @@ function calc95th(arr) {
 
             return {
                 switchTab, loadDashboard, loadDeviceCards, renderDeviceLatencyChart, collectSingleDevice, testDeviceSNMP, filterDeviceMonitoring, renderMonitorTable, sortMonitorDevices, loadTopology, loadAnomalies, searchAnomalies, triggerCollection, pollCollectionStatus, cancelCollection, toggleDeviceList, filterDeviceList, selectDevice, setQuickRange, closeCustomPicker, applyCustomRange,
-                loadManageDevices, filterDeviceCategory, renderDeviceTable, openAddModal, closeModal, editDevice, deleteDevice, saveDevice,
+                loadManageDevices, filterDeviceCategory, renderDeviceTable, changePage, goToPage, changePageSize, openAddModal, closeModal, editDevice, deleteDevice, saveDevice,
                 openDeviceDetail, closeDetailModal, changeTimeRange, resetZoom, refreshData,
                 loadIPConflicts, loadInterfaceDevices, loadInterfaces, searchInterfaces, filterInterfaces, sortInterfaces, refreshInterfaces, openInterfaceDetail, closeInterfaceModal, openRealtimeWindow, switchGraphTab, startRealtimePolling, stopRealtimePolling, changeRealtimeInterval, changeRealtimeWindow, switchChartType, switchInterfaceView, toggleGraphAutoRefresh, updateInterfaceStats, formatBytes, formatBandwidth, renderInterfaceTable, searchIPInventory, resolveConflict, runIPScan,
                 openAddConnectionModal, closeConnectionModal, saveConnection, deleteConnection,
@@ -4813,6 +4988,40 @@ function gsSelect(i){
   } else if(r.type==='anomaly'){
     if(typeof app!=='undefined' && app.switchTab) app.switchTab('anomalies');
   }
+}
+</script>
+
+<!-- Custom Confirm Modal -->
+<div id="confirmModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:99999;backdrop-filter:blur(4px);">
+    <div style="max-width:420px;margin:150px auto;background:linear-gradient(135deg,#2a5298,#1e3c72);border-radius:16px;border:1px solid rgba(255,255,255,0.2);padding:30px;box-shadow:0 25px 60px rgba(0,0,0,0.5);">
+        <div style="font-size:40px;text-align:center;margin-bottom:16px;" id="confirmIcon">⚠️</div>
+        <h3 id="confirmTitle" style="font-size:18px;font-weight:700;color:#fff;text-align:center;margin-bottom:10px;">Konfirmasi</h3>
+        <p id="confirmMessage" style="font-size:14px;color:rgba(255,255,255,0.7);text-align:center;margin-bottom:24px;line-height:1.5;"></p>
+        <div style="display:flex;gap:10px;justify-content:center;">
+            <button id="confirmCancel" style="flex:1;padding:10px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;font-size:14px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">Cancel</button>
+            <button id="confirmOk" style="flex:1;padding:10px;background:rgba(239,68,68,0.8);border:1px solid rgba(239,68,68,0.5);border-radius:8px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,1)'" onmouseout="this.style.background='rgba(239,68,68,0.8)'">Delete</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function showConfirm(title, message, onOk, icon, okLabel, okColor) {
+    icon = icon || '⚠️';
+    okLabel = okLabel || 'Confirm';
+    okColor = okColor || 'rgba(239,68,68,0.8)';
+    document.getElementById('confirmIcon').textContent = icon;
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmMessage').textContent = message;
+    document.getElementById('confirmOk').textContent = okLabel;
+    document.getElementById('confirmOk').style.background = okColor;
+    document.getElementById('confirmModal').style.display = 'block';
+    document.getElementById('confirmOk').onclick = function() {
+        document.getElementById('confirmModal').style.display = 'none';
+        if(onOk) onOk();
+    };
+    document.getElementById('confirmCancel').onclick = function() {
+        document.getElementById('confirmModal').style.display = 'none';
+    };
 }
 </script>
 
