@@ -1199,6 +1199,12 @@
             <div class="search-box">
                 <input type="text" class="search-input" id="anomalySearch" placeholder="🔍 Search by hostname, IP, or description..." oninput="app.searchAnomalies()">
             </div>
+            <!-- Anomaly Bulk Action Bar -->
+            <div id="anomalyBulkBar" style="display:none;align-items:center;gap:10px;padding:10px 15px;background:rgba(255,255,255,0.05);border-radius:8px;margin-bottom:10px;border:1px solid rgba(255,255,255,0.1);">
+                <input type="checkbox" onchange="app.selectAllAnomalies(this)" style="width:16px;height:16px;cursor:pointer;accent-color:#3b82f6;" title="Select All">
+                <span style="font-size:13px;color:rgba(255,255,255,0.6);flex:1;">Select all anomalies</span>
+                <button id="bulkDeleteBtn" onclick="app.bulkDeleteAnomalies()" style="padding:6px 14px;background:rgba(239,68,68,0.2);color:#ef4444;border:1px solid rgba(239,68,68,0.4);border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;" onmouseover="this.style.background='rgba(239,68,68,0.4)'" onmouseout="this.style.background='rgba(239,68,68,0.2)'">🗑️ Delete Selected</button>
+            </div>
             <div class="anomaly-list" id="anomalyList"><div class="loading">Loading...</div></div>
         </div>
 
@@ -2499,21 +2505,60 @@
                 const container = document.getElementById('anomalyList');
                 if (!anomalies || anomalies.length === 0) {
                     container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✅</div><div class="empty-state-title">No Anomalies Found</div><div class="empty-state-desc">Tidak ada anomali yang terdeteksi</div></div>';
+                    // Hide bulk bar
+                    var bb = document.getElementById('anomalyBulkBar');
+                    if(bb) bb.style.display = 'none';
                     return;
                 }
+                // Bulk action bar
+                var bb = document.getElementById('anomalyBulkBar');
+                if(bb) bb.style.display = 'flex';
                 container.innerHTML = anomalies.map(anomaly => `
-                    <div class="anomaly-item anomaly-${anomaly.severity}">
-                        <div class="anomaly-header">
-                            <div class="anomaly-device">${anomaly.hostname} (${anomaly.ip_address})</div>
-                            <span class="anomaly-badge badge-${anomaly.severity}">${anomaly.severity}</span>
+                    <div class="anomaly-item anomaly-${anomaly.severity}" style="display:flex;align-items:flex-start;gap:10px;">
+                        <input type="checkbox" class="anomaly-check" data-id="${anomaly.id}" 
+                            style="margin-top:4px;width:16px;height:16px;cursor:pointer;accent-color:#3b82f6;" 
+                            onchange="app.updateBulkCount()">
+                        <div style="flex:1;">
+                            <div class="anomaly-header">
+                                <div class="anomaly-device">${anomaly.hostname} (${anomaly.ip_address})</div>
+                                <span class="anomaly-badge badge-${anomaly.severity}">${anomaly.severity}</span>
+                            </div>
+                            <div class="anomaly-desc">${anomaly.description}</div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+                                <div class="anomaly-time">${new Date(anomaly.detected_at).toLocaleString()}</div>
+                                <button onclick="window.deleteAnomaly(${anomaly.id})" style="padding:4px 10px;font-size:11px;background:rgba(239,68,68,0.2);color:#ef4444;border:1px solid rgba(239,68,68,0.4);border-radius:4px;cursor:pointer;" onmouseover="this.style.background='rgba(239,68,68,0.4)'" onmouseout="this.style.background='rgba(239,68,68,0.2)'">🗑️ Delete</button>
+                            </div>
                         </div>
-                        <div class="anomaly-desc">${anomaly.description}</div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-                        <div class="anomaly-time">${new Date(anomaly.detected_at).toLocaleString()}</div>
-                        <button onclick="window.deleteAnomaly(${anomaly.id})" style="padding: 4px 10px; font-size: 11px; background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.4); border-radius: 4px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.4)'" onmouseout="this.style.background='rgba(239,68,68,0.2)'">🗑️ Delete</button>
-                    </div>
                     </div>
                 `).join('');
+            }
+
+            function updateBulkCount() {
+                var checked = document.querySelectorAll('.anomaly-check:checked').length;
+                var btn = document.getElementById('bulkDeleteBtn');
+                if(btn) btn.textContent = checked > 0 ? '🗑️ Delete Selected ('+checked+')' : '🗑️ Delete Selected';
+            }
+
+            function selectAllAnomalies(cb) {
+                document.querySelectorAll('.anomaly-check').forEach(function(c){ c.checked = cb.checked; });
+                updateBulkCount();
+            }
+
+            async function bulkDeleteAnomalies() {
+                var ids = Array.from(document.querySelectorAll('.anomaly-check:checked')).map(function(c){ return parseInt(c.getAttribute('data-id')); });
+                if(ids.length === 0) { showToast('Pilih anomali dulu', 'warning'); return; }
+                showConfirm('Delete Selected', 'Hapus '+ids.length+' anomali yang dipilih?', async function(){
+                    var ok = 0;
+                    for(var id of ids){
+                        try {
+                            var res = await fetch(API_URL+'/anomalies/'+id, {method:'DELETE', credentials:'include'});
+                            var d = await res.json();
+                            if(d.success) ok++;
+                        } catch(e) {}
+                    }
+                    showToast('✅ Deleted '+ok+'/'+ids.length+' anomalies');
+                    loadAnomalies();
+                }, '🗑️', 'Delete '+ids.length+' Items', 'rgba(239,68,68,0.8)');
             }
 
             async function loadAnomalies() {
@@ -3587,7 +3632,11 @@ function drawSparkline(canvas, points, color) {
                     if (maxUtil > 90) rowStyle += 'border-left:3px solid #ef4444; background:rgba(239,68,68,0.05);';
                     else if (maxUtil > 70) rowStyle += 'border-left:3px solid #f59e0b;';
 
-                    return `<tr class="interface-row" style="${rowStyle}" data-idx="${idx}">
+                    // Color code row by utilization (using existing maxUtil)
+                    const utilRowStyle = maxUtil > 90 ? 'background:rgba(239,68,68,0.06);'
+                        : maxUtil > 70 ? 'background:rgba(245,158,11,0.04);'
+                        : '';
+                    return `<tr class="interface-row" style="${rowStyle}${utilRowStyle}" data-idx="${idx}">
                         <td><strong>${iface.interface_name}</strong></td>
                         <td style="font-size:12px; color:rgba(255,255,255,0.6); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${iface.description || '--'}</td>
                         <td style="font-size:12px;">${operBadge}</td>
@@ -4728,7 +4777,7 @@ function calc95th(arr) {
             }
 
             return {
-                switchTab, loadDashboard, loadDeviceCards, renderDeviceLatencyChart, collectSingleDevice, testDeviceSNMP, filterDeviceMonitoring, renderMonitorTable, sortMonitorDevices, loadTopology, loadAnomalies, searchAnomalies, triggerCollection, pollCollectionStatus, cancelCollection, toggleDeviceList, filterDeviceList, selectDevice, setQuickRange, closeCustomPicker, applyCustomRange,
+                switchTab, loadDashboard, loadDeviceCards, renderDeviceLatencyChart, collectSingleDevice, testDeviceSNMP, filterDeviceMonitoring, renderMonitorTable, sortMonitorDevices, loadTopology, loadAnomalies, searchAnomalies, bulkDeleteAnomalies, selectAllAnomalies, updateBulkCount, triggerCollection, pollCollectionStatus, cancelCollection, toggleDeviceList, filterDeviceList, selectDevice, setQuickRange, closeCustomPicker, applyCustomRange,
                 loadManageDevices, filterDeviceCategory, renderDeviceTable, changePage, goToPage, changePageSize, openAddModal, closeModal, editDevice, deleteDevice, saveDevice,
                 openDeviceDetail, closeDetailModal, changeTimeRange, resetZoom, refreshData,
                 loadIPConflicts, loadInterfaceDevices, loadInterfaces, searchInterfaces, filterInterfaces, sortInterfaces, refreshInterfaces, openInterfaceDetail, closeInterfaceModal, openRealtimeWindow, switchGraphTab, startRealtimePolling, stopRealtimePolling, changeRealtimeInterval, changeRealtimeWindow, switchChartType, switchInterfaceView, toggleGraphAutoRefresh, updateInterfaceStats, formatBytes, formatBandwidth, renderInterfaceTable, searchIPInventory, resolveConflict, runIPScan,
