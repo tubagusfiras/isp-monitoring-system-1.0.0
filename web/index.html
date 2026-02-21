@@ -747,13 +747,14 @@
         </div>
 
                 <div id="devicesTab" class="tab-content" style="display: none;">
-            <h2>🖥️ Device Monitoring</h2>
-            
-            <!-- Latency Graph Section -->
-            <div style="background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-                <h3 style="margin-bottom: 15px;">Network Latency Overview</h3>
-                <canvas id="deviceLatencyChart" style="max-height: 300px;"></canvas>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+                <h2 style="margin:0;">🖥️ Device Monitoring</h2>
+                <div style="font-size:12px;color:rgba(255,255,255,0.4);">
+                    Last updated: <span id="deviceMonitorLastUpdate">-</span>
+                </div>
             </div>
+            
+
             
             <!-- Summary Stats -->
             <div class="monitor-stats" id="monitorStats">
@@ -1758,8 +1759,12 @@
             function renderMonitorTable(devices) {
                 const tbody = document.getElementById('monitorTableBody');
                 const thead = document.getElementById('monitorTableHead');
+                // Smooth fade
+                tbody.style.opacity = '0.5';
+                tbody.style.transition = 'opacity 0.2s';
+                setTimeout(() => { tbody.style.opacity = '1'; }, 300);
                 if (!devices || devices.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;">No devices found</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-title">No Devices Found</div><div class="empty-state-desc">Coba ubah filter atau kata kunci pencarian</div></div></td></tr>';
                     return;
                 }
 
@@ -1770,9 +1775,11 @@
                 const upCount = devices.filter(d => d._status === 'up').length;
                 const downCount = devices.filter(d => d._status === 'down').length;
                 const warnCount = devices.filter(d => d._status === 'warning').length;
-                const latencies = devices.filter(d => d.latency && d.latency.rtt_avg != null).map(d => d.latency.rtt_avg);
+                const latencies = devices.filter(d => d.latest_rtt != null).map(d => d.latest_rtt);
                 const avgLat = latencies.length ? (latencies.reduce((a,b) => a+b, 0) / latencies.length) : null;
                 document.getElementById('monStatTotal').textContent = devices.length;
+                var luEl = document.getElementById('deviceMonitorLastUpdate');
+                if(luEl) luEl.textContent = new Date().toLocaleTimeString('id-ID');
                 document.getElementById('monStatUp').textContent = upCount;
                 document.getElementById('monStatDown').textContent = downCount;
                 document.getElementById('monStatWarn').textContent = warnCount;
@@ -1807,21 +1814,22 @@
 
                 // Render header
                 const columns = [
-                    { key: 'status', label: 'Status' },
-                    { key: 'hostname', label: 'Hostname' },
-                    { key: 'ip', label: 'IP Address' },
-                    { key: 'type', label: 'Type' },
-                    { key: 'latency', label: 'Latency' },
-                    { key: 'loss', label: 'Pkt Loss' },
-                    { key: 'seen', label: 'Last Seen' },
-                    { key: 'actions', label: 'Actions' }
+                    { key: 'status',   label: 'Status',   width: '5%'  },
+                    { key: 'hostname', label: 'Hostname', width: '20%' },
+                    { key: 'ip',       label: 'IP Address',width: '13%' },
+                    { key: 'type',     label: 'Type',     width: '10%' },
+                    { key: 'location', label: 'Location', width: '12%' },
+                    { key: 'latency',  label: 'Latency',  width: '10%' },
+                    { key: 'loss',     label: 'Pkt Loss', width: '9%'  },
+                    { key: 'seen',     label: 'Last Seen',width: '10%' },
+                    { key: 'actions',  label: 'Actions',  width: '11%' }
                 ];
                 thead.innerHTML = columns.map(c => {
                     const sorted = monitorSort.col === c.key;
                     const arrow = c.key === 'actions' ? '' : `<span class="sort-arrow">${sorted ? (monitorSort.dir === 'asc' ? ' ↑' : ' ↓') : ' ↕'}</span>`;
                     const cls = sorted ? 'sorted' : '';
                     const onclick = c.key === 'actions' ? '' : `onclick="app.sortMonitorDevices('${c.key}')"`;
-                    return `<th class="${cls}" ${onclick}>${c.label}${arrow}</th>`;
+                    return `<th class="${cls}" ${onclick} style="width:${c.width||'auto'}">${c.label}${arrow}</th>`;
                 }).join('');
 
                 // Render rows
@@ -1851,17 +1859,20 @@
                     const typeBase = dtype.split('_')[0];
                     const typeCls = 'type-' + dtype.replace(/\s/g, '_').toLowerCase();
 
-                    return `<tr onclick="app.openDeviceDetail(${d.id})">
-                        <td><span class="status-dot ${dotClass}"></span></td>
+                    const location = d.location || '-';
+                    return `<tr onclick="app.openDeviceDetail(${d.id})" style="cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='rgba(59,130,246,0.08)'" onmouseout="this.style.background=''">
+                        <td><span class="status-dot ${dotClass}" title="${d._status.toUpperCase()}"></span></td>
                         <td style="font-weight:600;">${d.hostname}</td>
-                        <td style="font-family:monospace;">${d.ip_address}</td>
+                        <td style="font-family:monospace;font-size:12px;">${d.ip_address}</td>
                         <td><span class="type-badge ${typeCls}">${dtype.replace('_', ' ')}</span></td>
+                        <td style="font-size:12px;color:rgba(255,255,255,0.6);">${location}</td>
                         <td>${latencyHtml}</td>
                         <td>${lossHtml}</td>
-                        <td>${lastSeen}</td>
-                        <td onclick="event.stopPropagation();" style="display:flex;gap:6px;">
-                            <button class="btn" style="padding:4px 10px;font-size:12px;background:rgba(59,130,246,0.7);" onclick="app.collectSingleDevice(${d.id},'${d.hostname.replace(/'/g, "\\'")}')">Collect</button>
-                            <button class="btn" style="padding:4px 10px;font-size:12px;background:rgba(16,185,129,0.7);" onclick="app.testDeviceSNMP(${d.id},'${d.hostname.replace(/'/g, "\\'")}')">SNMP</button>
+                        <td style="font-size:12px;color:rgba(255,255,255,0.5);">${lastSeen}</td>
+                        <td onclick="event.stopPropagation();" style="display:flex;gap:4px;">
+                            <button class="icon-btn" title="Collect SNMP" onclick="app.collectSingleDevice(${d.id},'${d.hostname.replace(/'/g, "\\'")}')">📥</button>
+                            <button class="icon-btn" title="Test SNMP" onclick="app.testDeviceSNMP(${d.id},'${d.hostname.replace(/'/g, "\\'")}')">🔌</button>
+                            <button class="icon-btn" title="View Detail" onclick="event.stopPropagation();app.openDeviceDetail(${d.id});">📊</button>
                         </td>
                     </tr>`;
                 }).join('');

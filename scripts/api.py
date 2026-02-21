@@ -841,7 +841,7 @@ def get_devices_status():
             )
             SELECT
                 d.id, d.hostname, d.ip_address, d.device_type, d.device_category,
-                d.is_active, d.snmp_community,
+                d.is_active, d.snmp_community, d.location, d.role,
                 lc.last_collection,
                 COALESCE(lc.interface_count, 0) as interface_count,
                 ll.timestamp as last_latency,
@@ -900,7 +900,9 @@ def get_devices_status():
                 'ping_status': ping_status,
                 'snmp_status': snmp_status,
                 'latest_rtt': float(dev['latest_rtt']) if dev['latest_rtt'] else None,
-                'latest_packet_loss': float(dev['latest_packet_loss']) if dev['latest_packet_loss'] is not None else None
+                'latest_packet_loss': float(dev['latest_packet_loss']) if dev['latest_packet_loss'] is not None else None,
+                'location': dev['location'] or '',
+                'role': dev['role'] or ''
             })
         return jsonify({'success': True, 'data': result})
         
