@@ -246,6 +246,11 @@
         .tooltip-wrap:hover .tooltip-text { visibility: visible; opacity: 1; }
         .info-icon { display: inline-block; width: 14px; height: 14px; background: rgba(255,255,255,0.2); border-radius: 50%; font-size: 9px; text-align: center; line-height: 14px; cursor: help; margin-left: 4px; color: rgba(255,255,255,0.7); }
 
+        /* Sort arrows */
+        th .sort-arrow { opacity: 0.3; font-size: 10px; margin-left: 4px; }
+        th.sorted .sort-arrow { opacity: 1; color: #60a5fa; }
+        th[onclick] { cursor: pointer; user-select: none; }
+        th[onclick]:hover { background: rgba(255,255,255,0.08) !important; }
         /* Empty state */
         .empty-state { text-align: center; padding: 50px 20px; color: rgba(255,255,255,0.5); }
         .empty-state-icon { font-size: 48px; margin-bottom: 16px; }
@@ -735,10 +740,14 @@
             
             <!-- Summary Stats -->
             <div class="monitor-stats" id="monitorStats">
-                <div class="monitor-stat"><div class="label">Total</div><div class="val" id="monStatTotal">0</div></div>
-                <div class="monitor-stat"><div class="label">UP</div><div class="val" style="color:#10b981;" id="monStatUp">0</div></div>
-                <div class="monitor-stat"><div class="label">DOWN</div><div class="val" style="color:#ef4444;" id="monStatDown">0</div></div>
-                <div class="monitor-stat"><div class="label">WARNING</div><div class="val" style="color:#f59e0b;" id="monStatWarn">0</div></div>
+                <div class="monitor-stat" onclick="app.filterDeviceStatus('all')" id="statAll" style="cursor:pointer;transition:all 0.2s;" title="Show all">
+                    <div class="label">Total</div><div class="val" id="monStatTotal">0</div></div>
+                <div class="monitor-stat" onclick="app.filterDeviceStatus('up')" id="statUp" style="cursor:pointer;transition:all 0.2s;border:1px solid transparent;" title="Show UP">
+                    <div class="label">&#x1F7E2; UP</div><div class="val" style="color:#10b981;" id="monStatUp">0</div></div>
+                <div class="monitor-stat" onclick="app.filterDeviceStatus('down')" id="statDown" style="cursor:pointer;transition:all 0.2s;border:1px solid transparent;" title="Show DOWN">
+                    <div class="label">&#x1F534; DOWN</div><div class="val" style="color:#ef4444;" id="monStatDown">0</div></div>
+                <div class="monitor-stat" onclick="app.filterDeviceStatus('warning')" id="statWarn" style="cursor:pointer;transition:all 0.2s;border:1px solid transparent;" title="Show WARNING">
+                    <div class="label">&#x26A0;&#xFE0F; WARNING</div><div class="val" style="color:#f59e0b;" id="monStatWarn">0</div></div>
                 <div class="monitor-stat"><div class="label">Avg Latency</div><div class="val" id="monStatLatency">-</div></div>
             </div>
 
@@ -1675,6 +1684,25 @@
                 renderMonitorTable(filtered);
             }
             
+            let currentStatusFilter = 'all';
+            function filterDeviceStatus(status) {
+                currentStatusFilter = status;
+                // Highlight active stat card
+                ['all','up','down','warning'].forEach(function(s) {
+                    var el = document.getElementById('stat' + s.charAt(0).toUpperCase() + s.slice(1));
+                    if(el) el.style.borderColor = s === status ? 'rgba(59,130,246,0.8)' : 'transparent';
+                });
+                // Filter devices by status
+                var filtered = currentStatusFilter === 'all' 
+                    ? allDevices 
+                    : allDevices.filter(function(d) { return getDeviceStatus(d) === currentStatusFilter; });
+                // Apply existing category filter too
+                if (currentMonitorCategory !== 'all') {
+                    filtered = filtered.filter(function(d) { return d.category === currentMonitorCategory; });
+                }
+                renderMonitorTable(filtered);
+                showToast('Filtering: ' + status.toUpperCase() + ' (' + filtered.length + ' devices)', 'info');
+            }
             function getDeviceStatus(d) {
                 if (d.ping_status === 'up') return 'up';
                 if (d.ping_status === 'down') return 'down';
@@ -1755,7 +1783,7 @@
                 ];
                 thead.innerHTML = columns.map(c => {
                     const sorted = monitorSort.col === c.key;
-                    const arrow = c.key === 'actions' ? '' : `<span class="sort-arrow">${sorted ? (monitorSort.dir === 'asc' ? '&#9650;' : '&#9660;') : '&#9650;'}</span>`;
+                    const arrow = c.key === 'actions' ? '' : `<span class="sort-arrow">${sorted ? (monitorSort.dir === 'asc' ? ' ↑' : ' ↓') : ' ↕'}</span>`;
                     const cls = sorted ? 'sorted' : '';
                     const onclick = c.key === 'actions' ? '' : `onclick="app.sortMonitorDevices('${c.key}')"`;
                     return `<th class="${cls}" ${onclick}>${c.label}${arrow}</th>`;
@@ -3274,6 +3302,29 @@
                 }
                 return valid;
             }
+            // Keyboard navigation
+            document.addEventListener('keydown', function(e) {
+                // Skip jika focus di input/textarea
+                if (['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return;
+                // Ctrl+K sudah handled di global search
+                const tabKeys = {
+                    '1': 'dashboard', '2': 'devices', '3': 'topology',
+                    '4': 'interfaces', '5': 'ipConflicts', '6': 'anomalies',
+                    '7': 'content', '8': 'manage'
+                };
+                if (e.altKey && tabKeys[e.key]) {
+                    e.preventDefault();
+                    var tabBtn = document.querySelector('.tab-btn[onclick*="' + tabKeys[e.key] + '"]');
+                    if(tabBtn) tabBtn.click();
+                }
+                // ESC tutup modal
+                if (e.key === 'Escape') {
+                    ['detailModal','deviceModal','connectionModal','contentDetailModal','addContentModal','confirmModal'].forEach(function(id) {
+                        var el = document.getElementById(id);
+                        if(el && el.style.display !== 'none') el.style.display = 'none';
+                    });
+                }
+            });
             function showTabLoading(tab) {
                 // Show skeleton on stat cards briefly
                 var skeletons = document.querySelectorAll('.skeleton-placeholder');
@@ -4777,7 +4828,7 @@ function calc95th(arr) {
             }
 
             return {
-                switchTab, loadDashboard, loadDeviceCards, renderDeviceLatencyChart, collectSingleDevice, testDeviceSNMP, filterDeviceMonitoring, renderMonitorTable, sortMonitorDevices, loadTopology, loadAnomalies, searchAnomalies, bulkDeleteAnomalies, selectAllAnomalies, updateBulkCount, triggerCollection, pollCollectionStatus, cancelCollection, toggleDeviceList, filterDeviceList, selectDevice, setQuickRange, closeCustomPicker, applyCustomRange,
+                switchTab, loadDashboard, loadDeviceCards, renderDeviceLatencyChart, collectSingleDevice, testDeviceSNMP, filterDeviceMonitoring, filterDeviceStatus, renderMonitorTable, sortMonitorDevices, loadTopology, loadAnomalies, searchAnomalies, bulkDeleteAnomalies, selectAllAnomalies, updateBulkCount, triggerCollection, pollCollectionStatus, cancelCollection, toggleDeviceList, filterDeviceList, selectDevice, setQuickRange, closeCustomPicker, applyCustomRange,
                 loadManageDevices, filterDeviceCategory, renderDeviceTable, changePage, goToPage, changePageSize, openAddModal, closeModal, editDevice, deleteDevice, saveDevice,
                 openDeviceDetail, closeDetailModal, changeTimeRange, resetZoom, refreshData,
                 loadIPConflicts, loadInterfaceDevices, loadInterfaces, searchInterfaces, filterInterfaces, sortInterfaces, refreshInterfaces, openInterfaceDetail, closeInterfaceModal, openRealtimeWindow, switchGraphTab, startRealtimePolling, stopRealtimePolling, changeRealtimeInterval, changeRealtimeWindow, switchChartType, switchInterfaceView, toggleGraphAutoRefresh, updateInterfaceStats, formatBytes, formatBandwidth, renderInterfaceTable, searchIPInventory, resolveConflict, runIPScan,
