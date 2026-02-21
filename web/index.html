@@ -861,23 +861,29 @@
         </div>
 
 <div id="interfacesTab" class="tab-content" style="display: none;">
-            <h2>📊 Interface Statistics</h2>
-
-            <!-- View Mode Toggle + Device Selector & Controls -->
-            <div class="controls" style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                <!-- View toggle -->
-                <div style="display: flex; border-radius: 6px; overflow: hidden; border: 1px solid rgba(255,255,255,0.2);">
-                    <button id="ifViewPerDevice" onclick="app.switchInterfaceView('device')" style="padding: 8px 16px; background: rgba(59,130,246,0.3); color: #93c5fd; border: none; cursor: pointer; font-size: 13px;">Per Device</button>
-                    <button id="ifViewTopTalkers" onclick="app.switchInterfaceView('top-talkers')" style="padding: 8px 16px; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.7); border: none; cursor: pointer; font-size: 13px;">Top Talkers</button>
+            <!-- Header -->
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+                <div>
+                    <h2 style="margin:0; font-size:20px;">📊 Interface Statistics</h2>
+                    <span style="font-size:12px; color:rgba(255,255,255,0.4);" id="ifLastUpdated">Pilih device untuk melihat data</span>
                 </div>
+                <!-- View Mode Toggle -->
+                <div style="display:flex; border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.15);">
+                    <button id="ifViewPerDevice" onclick="app.switchInterfaceView('device')" style="padding:8px 18px; background:rgba(59,130,246,0.3); color:#93c5fd; border:none; cursor:pointer; font-size:13px; font-weight:500;">📡 Per Device</button>
+                    <button id="ifViewTopTalkers" onclick="app.switchInterfaceView('top-talkers')" style="padding:8px 18px; background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.6); border:none; cursor:pointer; font-size:13px;">🏆 Top Talkers</button>
+                </div>
+            </div>
 
+            <!-- Controls Row -->
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:16px;">
+                <!-- Device Selector -->
                 <div id="ifDeviceSelectorWrap" style="position:relative;">
-                    <button id="ifDeviceListToggle" onclick="app.toggleDeviceList()" style="padding:8px 14px; background:rgba(59,130,246,0.2); border:1px solid rgba(59,130,246,0.4); color:#93c5fd; border-radius:6px; cursor:pointer; font-size:13px; display:flex; align-items:center; gap:6px;">
-                        <span>📡</span><span id="ifDeviceListLabel">Select Device</span><span>▾</span>
+                    <button id="ifDeviceListToggle" onclick="app.toggleDeviceList()" style="padding:8px 14px; background:rgba(59,130,246,0.2); border:1px solid rgba(59,130,246,0.4); color:#93c5fd; border-radius:8px; cursor:pointer; font-size:13px; display:flex; align-items:center; gap:6px; white-space:nowrap;">
+                        <span>📡</span><span id="ifDeviceListLabel">Pilih Device</span><span>▾</span>
                     </button>
-                    <div id="ifDeviceListPanel" style="display:none; position:absolute; top:40px; left:0; z-index:100; background:rgba(15,23,42,0.98); border:1px solid rgba(255,255,255,0.15); border-radius:8px; width:320px; max-height:400px; box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+                    <div id="ifDeviceListPanel" style="display:none; position:absolute; top:42px; left:0; z-index:100; background:rgba(15,23,42,0.98); border:1px solid rgba(255,255,255,0.15); border-radius:10px; width:320px; max-height:400px; box-shadow:0 8px 32px rgba(0,0,0,0.5);">
                         <div style="padding:10px;">
-                            <input type="text" id="ifDeviceSearchBox" placeholder="🔍 Search device..." oninput="app.filterDeviceList()" style="width:100%; padding:8px 10px; border-radius:6px; background:rgba(255,255,255,0.08); color:white; border:1px solid rgba(255,255,255,0.2); font-size:13px; box-sizing:border-box;">
+                            <input type="text" id="ifDeviceSearchBox" placeholder="🔍 Cari device..." oninput="app.filterDeviceList()" style="width:100%; padding:8px 10px; border-radius:6px; background:rgba(255,255,255,0.08); color:white; border:1px solid rgba(255,255,255,0.2); font-size:13px; box-sizing:border-box;">
                         </div>
                         <div id="ifDeviceListItems" style="overflow-y:auto; max-height:320px; padding:0 6px 8px;">
                             <div style="color:rgba(255,255,255,0.4); text-align:center; padding:20px;">Loading...</div>
@@ -885,44 +891,46 @@
                     </div>
                 </div>
 
-                <div style="flex: 1;">
-                    <input type="text" id="interfaceSearchInput" placeholder="Search interface or description..." style="width: 100%; max-width: 400px; padding: 8px; border-radius: 4px; background: rgba(30,41,59,0.95); color: white; border: 1px solid rgba(255,255,255,0.2);" oninput="app.searchInterfaces()">
-                </div>
+                <!-- Search -->
+                <input type="text" id="interfaceSearchInput" placeholder="🔍 Cari interface atau deskripsi..." style="flex:1; min-width:200px; max-width:380px; padding:8px 12px; border-radius:8px; background:rgba(30,41,59,0.95); color:white; border:1px solid rgba(255,255,255,0.2); font-size:13px;" oninput="app.searchInterfaces()">
 
-                <div>
-                    <label style="margin-right: 8px;">Filter:</label>
-                    <select id="interfaceStatusFilter" onchange="app.filterInterfaces()" style="padding: 8px; border-radius: 4px; background: rgba(30,41,59,0.95); color: white; border: 1px solid rgba(255,255,255,0.2);">
-                        <option value="all">All Status</option>
-                        <option value="up">UP Only</option>
-                        <option value="down">DOWN Only</option>
-                        <option value="errors">With Errors</option>
-                    </select>
-                </div>
+                <!-- Status Filter -->
+                <select id="interfaceStatusFilter" onchange="app.filterInterfaces()" style="padding:8px 12px; border-radius:8px; background:rgba(30,41,59,0.95); color:white; border:1px solid rgba(255,255,255,0.2); font-size:13px;">
+                    <option value="all">🔘 Semua Status</option>
+                    <option value="up">🟢 UP Only</option>
+                    <option value="down">🔴 DOWN Only</option>
+                    <option value="errors">⚠️ With Errors</option>
+                </select>
 
-                <button class="btn btn-primary" onclick="app.refreshInterfaces()">Refresh</button>
+                <button class="btn btn-primary" onclick="app.refreshInterfaces()" style="white-space:nowrap;">🔄 Refresh</button>
             </div>
 
             <!-- Stats Summary -->
-            <div class="stats-grid" id="interfaceStatsSummary" style="margin-bottom: 25px; display: none;">
-                <div class="stat-card">
-                    <h3>Total Interfaces</h3>
+            <div class="stats-grid" id="interfaceStatsSummary" style="margin-bottom:20px; display:none;">
+                <div class="stat-card" style="border-left:4px solid #60a5fa;">
+                    <h3>📋 Total Interface</h3>
                     <div class="value" id="totalInterfaces">0</div>
+                    <p style="font-size:12px; color:rgba(255,255,255,0.5); margin-top:6px;">Semua interface</p>
                 </div>
-                <div class="stat-card">
-                    <h3 style="color: #10b981;">UP</h3>
-                    <div class="value" style="color: #10b981;" id="interfacesUp">0</div>
+                <div class="stat-card" style="border-left:4px solid #10b981;">
+                    <h3>🟢 UP</h3>
+                    <div class="value" style="color:#10b981;" id="interfacesUp">0</div>
+                    <p style="font-size:12px; color:rgba(255,255,255,0.5); margin-top:6px;">Interface aktif</p>
                 </div>
-                <div class="stat-card">
-                    <h3 style="color: #ef4444;">DOWN</h3>
-                    <div class="value" style="color: #ef4444;" id="interfacesDown">0</div>
+                <div class="stat-card" style="border-left:4px solid #ef4444;">
+                    <h3>🔴 DOWN</h3>
+                    <div class="value" style="color:#ef4444;" id="interfacesDown">0</div>
+                    <p style="font-size:12px; color:rgba(255,255,255,0.5); margin-top:6px;">Interface mati</p>
                 </div>
-                <div class="stat-card">
-                    <h3 style="color: #f59e0b;">Errors</h3>
-                    <div class="value" style="color: #f59e0b;" id="interfacesWithErrors">0</div>
+                <div class="stat-card" style="border-left:4px solid #f59e0b;">
+                    <h3>⚠️ Errors</h3>
+                    <div class="value" style="color:#f59e0b;" id="interfacesWithErrors">0</div>
+                    <p style="font-size:12px; color:rgba(255,255,255,0.5); margin-top:6px;">Ada error packet</p>
                 </div>
-                <div class="stat-card">
-                    <h3 style="color: #ef4444;">High Util (&gt;70%)</h3>
-                    <div class="value" style="color: #ef4444;" id="interfacesHighUtil">0</div>
+                <div class="stat-card" style="border-left:4px solid #ef4444;">
+                    <h3>🔥 High Util</h3>
+                    <div class="value" style="color:#ef4444;" id="interfacesHighUtil">0</div>
+                    <p style="font-size:12px; color:rgba(255,255,255,0.5); margin-top:6px;">Utilisasi &gt;70%</p>
                 </div>
             </div>
 
@@ -931,18 +939,19 @@
                 <table>
                     <thead>
                         <tr>
-                            <th style="cursor: pointer; min-width:100px;" onclick="app.sortInterfaces('interface_name')">Interface &#8645;</th>
-                            <th style="cursor: pointer;" onclick="app.sortInterfaces('description')">Description &#8645;</th>
-                            <th style="cursor: pointer; width:60px;" onclick="app.sortInterfaces('oper_status')">Status &#8645;</th>
-                            <th style="cursor: pointer; width:90px;" onclick="app.sortInterfaces('speed')">Speed &#8645;</th>
-                            <th style="cursor: pointer; min-width:180px;" onclick="app.sortInterfaces('in_mbps')">IN &#8645;</th>
-                            <th style="cursor: pointer; min-width:180px;" onclick="app.sortInterfaces('out_mbps')">OUT &#8645;</th>
-                            <th style="width:90px;">Trend</th>
-                            <th style="width:70px;">Errors</th>
+                            <th style="cursor:pointer; min-width:100px;" onclick="app.sortInterfaces('interface_name')" id="sort_interface_name">Interface <span class="sort-arrow">↕</span></th>
+                            <th style="cursor:pointer;" onclick="app.sortInterfaces('description')" id="sort_description">Description <span class="sort-arrow">↕</span></th>
+                            <th style="cursor:pointer; width:70px;" onclick="app.sortInterfaces('oper_status')" id="sort_oper_status">Status <span class="sort-arrow">↕</span></th>
+                            <th style="cursor:pointer; width:90px;" onclick="app.sortInterfaces('speed')" id="sort_speed">Speed <span class="sort-arrow">↕</span></th>
+                            <th style="cursor:pointer; min-width:160px;" onclick="app.sortInterfaces('in_mbps')" id="sort_in_mbps">↓ IN <span class="sort-arrow">↕</span></th>
+                            <th style="cursor:pointer; min-width:160px;" onclick="app.sortInterfaces('out_mbps')" id="sort_out_mbps">↑ OUT <span class="sort-arrow">↕</span></th>
+                            <th style="cursor:pointer; width:60px;" onclick="app.sortInterfaces('in_mbps')" id="sort_util">Util%</th>
+                            <th style="width:80px;">Trend</th>
+                            <th style="width:60px; text-align:center;">Errors</th>
                         </tr>
                     </thead>
                     <tbody id="interfaceTable">
-                        <tr><td colspan="9" class="loading">Select a device to view interfaces</td></tr>
+                        <tr><td colspan="9" class="loading">Pilih device untuk melihat interfaces</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -3248,7 +3257,7 @@
                             </tr>`;
                         }).join('');
                     } else {
-                        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No active conflicts 🎉</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No active conflicts 🎉</td></tr>';
                     }
                     
                     loadIPStats();
@@ -3699,8 +3708,15 @@ async function loadInterfaces(deviceId) {
 
                     sparklineData = spkData.success ? spkData.data : {};
 
+                    // Update last updated time
+                    const ifLastUpdated = document.getElementById('ifLastUpdated');
+                    if (ifLastUpdated) {
+                        const now = new Date().toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+                        ifLastUpdated.textContent = `Terakhir diperbarui: ${now}`;
+                    }
+
                     if (!bwData.success || !bwData.data || bwData.data.length === 0) {
-                        document.getElementById('interfaceTable').innerHTML = '<tr><td colspan="8" style="text-align: center;">No interface data. Wait for collection.</td></tr>';
+                        document.getElementById('interfaceTable').innerHTML = '<tr><td colspan="9" style="text-align: center;">No interface data. Wait for collection.</td></tr>';
                         return;
                     }
 
@@ -3777,6 +3793,13 @@ function sortInterfaces(column) {
                     if (valA > valB) return currentSortDirection === 'asc' ? 1 : -1;
                     return 0;
                 });
+                // Update sort arrow indicators
+                document.querySelectorAll('#ifPerDeviceTable th .sort-arrow').forEach(el => el.textContent = '↕');
+                const activeHeader = document.getElementById('sort_' + column);
+                if (activeHeader) {
+                    const arrow = activeHeader.querySelector('.sort-arrow');
+                    if (arrow) arrow.textContent = currentSortDirection === 'asc' ? '↑' : '↓';
+                }
                 renderInterfaceTable();
             }
 
@@ -3831,29 +3854,33 @@ function drawSparkline(canvas, points, color) {
                     const outUtil = speedMbps > 0 ? (outMbps / speedMbps) * 100 : 0;
                     const maxUtil = Math.max(inUtil, outUtil);
 
-                    const operBadge = iface.oper_status === 'up'
-                        ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#10b981;margin-right:4px;"></span>UP'
-                        : '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444;margin-right:4px;"></span>DN';
+                    const isUp = iface.oper_status === 'up';
+                    const operBadge = isUp
+                        ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:#10b981;font-size:11px;font-weight:600;">● UP</span>'
+                        : '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#ef4444;font-size:11px;font-weight:600;">● DN</span>';
 
                     const totalErrors = (iface.in_errors || 0) + (iface.out_errors || 0);
-                    const errDisplay = totalErrors > 0 ? `<span style="color:#f59e0b;">${totalErrors}</span>` : '<span style="color:rgba(255,255,255,0.3);">0</span>';
+                    const errDisplay = totalErrors > 0
+                        ? `<span style="padding:2px 7px;border-radius:99px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);color:#f59e0b;font-size:11px;font-weight:600;">${totalErrors}</span>`
+                        : '<span style="color:rgba(255,255,255,0.2);font-size:12px;">—</span>';
 
-                    // Threshold styling
-                    let rowStyle = 'cursor:pointer;';
-                    if (maxUtil > 90) rowStyle += 'border-left:3px solid #ef4444; background:rgba(239,68,68,0.05);';
-                    else if (maxUtil > 70) rowStyle += 'border-left:3px solid #f59e0b;';
+                    // Row styling by utilization
+                    let rowStyle = 'cursor:pointer; transition:background 0.15s;';
+                    if (!isUp) rowStyle += 'opacity:0.6;';
+                    else if (maxUtil > 90) rowStyle += 'border-left:3px solid #ef4444; background:rgba(239,68,68,0.06);';
+                    else if (maxUtil > 70) rowStyle += 'border-left:3px solid #f59e0b; background:rgba(245,158,11,0.04);';
+                    else rowStyle += 'border-left:3px solid transparent;';
 
-                    // Color code row by utilization (using existing maxUtil)
-                    const utilRowStyle = maxUtil > 90 ? 'background:rgba(239,68,68,0.06);'
-                        : maxUtil > 70 ? 'background:rgba(245,158,11,0.04);'
-                        : '';
-                    return `<tr class="interface-row" style="${rowStyle}${utilRowStyle}" data-idx="${idx}">
-                        <td><strong>${iface.interface_name}</strong></td>
-                        <td style="font-size:12px; color:rgba(255,255,255,0.6); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${iface.description || '--'}</td>
-                        <td style="font-size:12px;">${operBadge}</td>
-                        <td style="font-size:12px;">${formatBandwidth(speedMbps)}</td>
+                    const utilPct = maxUtil > 0 ? `<span style="font-size:10px;color:${maxUtil>90?'#ef4444':maxUtil>70?'#f59e0b':'rgba(255,255,255,0.4)'};">${maxUtil.toFixed(1)}%</span>` : '';
+
+                    return `<tr class="interface-row" style="${rowStyle}" data-idx="${idx}">
+                        <td><strong style="font-size:13px;">${iface.interface_name}</strong></td>
+                        <td style="font-size:12px; color:rgba(255,255,255,0.55); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${iface.description || ''}">${iface.description || '<span style="color:rgba(255,255,255,0.2);">—</span>'}</td>
+                        <td>${operBadge}</td>
+                        <td style="font-size:12px; color:rgba(255,255,255,0.7);">${formatBandwidth(speedMbps)}</td>
                         <td>${renderUtilBar(inMbps, speedMbps, '#10b981')}</td>
                         <td>${renderUtilBar(outMbps, speedMbps, '#3b82f6')}</td>
+                        <td style="text-align:center;">${utilPct}</td>
                         <td><canvas class="if-sparkline" data-if="${iface.interface_name}" width="80" height="24" style="display:block;"></canvas></td>
                         <td style="text-align:center;">${errDisplay}</td>
                     </tr>`;
