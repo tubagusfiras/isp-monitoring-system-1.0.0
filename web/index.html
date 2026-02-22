@@ -334,11 +334,16 @@
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
+            width: 100vw;
+            height: 100vh;
             background: rgba(0, 0, 0, 0.8);
             z-index: 1000;
+            overflow: hidden;
+            zoom: calc(1 / 0.85);
+        }
+        .modal-content {
             overflow-y: auto;
+            max-height: calc(100vh - 80px);
         }
         .modal-content {
             background: linear-gradient(135deg, #0d1b3e 0%, #0a2444 100%);
@@ -935,7 +940,7 @@
             <button class="tab-btn" onclick="app.switchTab('anomalies')">⚠️ Anomalies</button>
             <button class="tab-btn" onclick="app.switchTab('content')">🌐 Content Monitor</button>
             <button class="tab-btn" onclick="app.switchTab('ai')">🤖 AI Assistant</button>
-            <button class="tab-btn" onclick="window.open('/site-summary.html', '_blank')">🗺️ Site Summary ↗</button>
+            <button class="tab-btn" onclick="app.switchTab('site-summary')">🗺️ Site Summary</button>
             <button class="tab-btn" onclick="app.switchTab('manage')">⚙️ Manage</button>
         </div>
 
@@ -1283,8 +1288,8 @@
 
 
         <!-- Interface Detail Modal -->
-        <div id="interfaceDetailModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; overflow-y: auto;">
-            <div style="max-width: 1400px; margin: 40px auto; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 12px; padding: 30px; box-shadow: 0 25px 50px rgba(0,0,0,0.5);">
+        <div id="interfaceDetailModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 9999; overflow: hidden; zoom: calc(1 / 0.85);">
+            <div style="max-width: 1400px; margin: 40px auto; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 12px; padding: 30px; box-shadow: 0 25px 50px rgba(0,0,0,0.5); max-height: calc(100vh - 80px); overflow-y: auto;">
                 <!-- Header -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
                     <div>
@@ -1540,6 +1545,10 @@
                     <tbody id="ipInventoryTable"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
                 </table>
             </div>
+        </div>
+
+        <div id="site-summaryTab" class="tab-content" style="display: none; padding: 0;">
+            <iframe src="about:blank" style="width:100%; height:calc(100vh - 120px); border:none; border-radius:12px;" id="siteSummaryFrame"></iframe>
         </div>
 
         <div id="anomaliesTab" class="tab-content" style="display: none;">
@@ -3339,6 +3348,7 @@
                 document.getElementById('topologyTab').style.display = tab === 'topology' ? 'block' : 'none';
                 document.getElementById('anomaliesTab').style.display = tab === 'anomalies' ? 'block' : 'none';
                 document.getElementById('ipConflictsTab').style.display = tab === 'ip-conflicts' ? 'block' : 'none';
+                document.getElementById('site-summaryTab').style.display = tab === 'site-summary' ? 'block' : 'none';
                 document.getElementById('interfacesTab').style.display = tab === 'interfaces' ? 'block' : 'none';
                 document.getElementById('contentTab').style.display = tab === 'content' ? 'block' : 'none';
                 document.getElementById('manageTab').style.display = tab === 'manage' ? 'block' : 'none';
@@ -3761,8 +3771,8 @@
                 // Ctrl+K sudah handled di global search
                 const tabKeys = {
                     '1': 'dashboard', '2': 'devices', '3': 'topology',
-                    '4': 'interfaces', '5': 'ipConflicts', '6': 'anomalies',
-                    '7': 'content', '8': 'manage'
+                    '4': 'ip-conflicts', '5': 'interfaces', '6': 'anomalies',
+                    '7': 'content', '8': 'ai', '9': 'manage'
                 };
                 if (e.altKey && tabKeys[e.key]) {
                     e.preventDefault();
@@ -3780,14 +3790,18 @@
             async function loadCollectionErrors() {
                 try {
                     const res = await fetch('/api/collection/errors', {credentials:'include'});
+                    // Skip kalau tidak authenticated
+                    if (res.status === 401) return;
                     const data = await res.json();
-                    if (!data.success || !data.data.length) return;
+                    if (!data.success || !data.data || !data.data.length) return;
                     var el = document.getElementById('collectionErrors');
                     if (!el) {
+                        const parent = document.getElementById('collectionStatus');
+                        if (!parent) return;
                         el = document.createElement('div');
                         el.id = 'collectionErrors';
                         el.style.cssText = 'margin-top:10px;padding:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;';
-                        document.getElementById('collectionStatus').appendChild(el);
+                        parent.appendChild(el);
                     }
                     el.innerHTML = '<div style="font-size:13px;font-weight:600;color:#ef4444;margin-bottom:8px;">❌ Failed Devices ('+data.count+'):</div>' +
                         data.data.map(function(e) {
@@ -5367,6 +5381,22 @@ function calc95th(arr) {
                     document.getElementById('mainApp').style.display = '';
                     document.getElementById('loginPassword').value = '';
                     errorEl.style.display = 'none';
+                    // Set username langsung dari response login
+                    const headerUser = document.getElementById('headerUsername');
+                    if (headerUser && data.username) headerUser.textContent = data.username;
+                    // Load external scripts setelah login
+                    if (!document.getElementById('notifBellScript')) {
+                        const s1 = document.createElement('script');
+                        s1.src = '/notif-bell.js';
+                        s1.id = 'notifBellScript';
+                        document.body.appendChild(s1);
+                    }
+                    if (!document.getElementById('perfMonitorScript')) {
+                        const s2 = document.createElement('script');
+                        s2.src = '/performance-monitor.js';
+                        s2.id = 'perfMonitorScript';
+                        document.body.appendChild(s2);
+                    }
                     app.startApp();
                 } else {
                     errorEl.textContent = data.error || 'Login failed';
@@ -5378,6 +5408,13 @@ function calc95th(arr) {
 
         async function doLogout() {
             try { await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }); } catch(e) {}
+            // Reset header username
+            const headerUser = document.getElementById('headerUsername');
+            if (headerUser) headerUser.textContent = '-';
+            // Unload site-summary iframe biar tidak loop
+            const iframe = document.getElementById('siteSummaryFrame');
+            if (iframe) iframe.src = 'about:blank';
+            // Show login, hide app
             document.getElementById('loginScreen').style.display = 'flex';
             document.getElementById('mainApp').style.display = 'none';
             document.getElementById('loginUsername').value = '';
@@ -5395,8 +5432,7 @@ function calc95th(arr) {
 
         checkAuth();
     </script>
-    <script src="/notif-bell.js"></script>
-    <script src="/performance-monitor.js"></script>
+
 
     
         <!-- AI Assistant Tab -->
@@ -5651,11 +5687,11 @@ const AI_SUGGESTED_PROMPTS = [
     "Tampilkan top 5 device dengan latency tertinggi"
 ];
 
-// Fetch current user
+// Fetch current user (silent - only set if authenticated)
 fetch('/api/auth/me', {credentials:'include'})
-    .then(r => r.json())
+    .then(r => { if(r.ok) return r.json(); return null; })
     .then(d => {
-        if(d.success && d.username) {
+        if(d && d.success && d.username) {
             var el = document.getElementById('headerUsername');
             if(el) el.textContent = d.username;
         }
