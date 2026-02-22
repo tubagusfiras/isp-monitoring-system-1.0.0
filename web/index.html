@@ -914,12 +914,44 @@
                     <div id="currentDate" style="font-size:11px;color:rgba(255,255,255,0.4);"></div>
                 </div>
                 <div style="width:1px;height:30px;background:rgba(255,255,255,0.15);"></div>
+                <!-- Job Monitor Button -->
+                <button onclick="app.openJobMonitor()" id="jobMonitorBtn"
+                    style="position:relative;padding:6px 14px;border:1px solid rgba(99,102,241,0.3);border-radius:6px;background:rgba(99,102,241,0.1);color:#a5b4fc;font-size:12px;cursor:pointer;transition:all 0.2s;font-weight:500;"
+                    onmouseover="this.style.background='rgba(99,102,241,0.3)'"
+                    onmouseout="this.style.background='rgba(99,102,241,0.1)'"
+                    title="Lihat semua proses yang sedang berjalan">
+                    ⚙️ Jobs
+                    <span id="jobMonitorBadge" style="display:none;position:absolute;top:-5px;right:-5px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:99px;"></span>
+                </button>
+                <div style="width:1px;height:30px;background:rgba(255,255,255,0.15);"></div>
                 <button onclick="doLogout()" 
                     style="padding:6px 14px;border:1px solid rgba(239,68,68,0.3);border-radius:6px;background:rgba(239,68,68,0.1);color:#f87171;font-size:12px;cursor:pointer;transition:all 0.2s;font-weight:500;"
                     onmouseover="this.style.background='rgba(239,68,68,0.3)'" 
                     onmouseout="this.style.background='rgba(239,68,68,0.1)'">⏻ Logout</button>
             </div>
         </header>
+    <!-- Job Monitor Modal -->
+    <div id="jobMonitorModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:9999; overflow:hidden; zoom:calc(1/0.85);">
+        <div style="max-width:700px; margin:60px auto; background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%); border-radius:14px; padding:28px; box-shadow:0 25px 50px rgba(0,0,0,0.5); max-height:calc(100vh - 120px); overflow-y:auto;">
+            <!-- Header -->
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; padding-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.1);">
+                <div>
+                    <h2 style="margin:0; font-size:20px; color:#fff;">⚙️ Monitor Proses</h2>
+                    <p style="margin:4px 0 0 0; font-size:13px; color:rgba(255,255,255,0.4);">Pantau semua proses yang sedang berjalan di background</p>
+                </div>
+                <button onclick="app.closeJobMonitor()" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#f87171;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;">✕ Tutup</button>
+            </div>
+            <!-- Job List -->
+            <div id="jobMonitorContent">
+                <div style="text-align:center; padding:40px; color:rgba(255,255,255,0.3);">
+                    <div style="font-size:40px; margin-bottom:12px;">✅</div>
+                    <div style="font-size:15px; font-weight:500; color:rgba(255,255,255,0.5);">Semua sistem berjalan normal</div>
+                    <div style="font-size:13px; color:rgba(255,255,255,0.3); margin-top:6px;">Tidak ada proses yang sedang berjalan saat ini</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay">
         <div style="text-align: center;">
@@ -1682,6 +1714,16 @@
                     <div style="font-size:28px;font-weight:700;color:#10b981;margin-top:4px;"><span id="countAccess">0</span></div>
                 </div>
             </div>
+            <!-- Collection Progress Panel -->
+            <div id="collectProgressPanel" style="display:none; margin-bottom:16px; background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.2); border-radius:12px; padding:16px 20px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <span style="font-size:18px;">📥</span>
+                    <span style="color:#e2e8f0; font-size:14px; font-weight:600;">SNMP Collection Berjalan</span>
+                    <span id="collectPanelCount" style="margin-left:auto; background:rgba(16,185,129,0.2); border:1px solid rgba(16,185,129,0.3); color:#6ee7b7; font-size:12px; font-weight:700; padding:2px 10px; border-radius:99px;">0 device</span>
+                </div>
+                <div id="collectPanelList" style="display:flex; flex-direction:column; gap:8px;"></div>
+            </div>
+
             <!-- Controls Row -->
             <div class="controls" style="margin-bottom:15px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
                 <input type="text" id="manageSearch" placeholder="🔍 Search hostname, IP, location..." 
@@ -2199,10 +2241,8 @@
                         <td style="text-align:center;padding:10px 12px;">${latencyHtml}</td>
                         <td style="text-align:center;padding:10px 12px;">${lossHtml}</td>
                         <td style="text-align:center;font-size:12px;color:rgba(255,255,255,0.5);padding:10px 12px;">${lastSeen}</td>
-                        <td onclick="event.stopPropagation();" style="text-align:center;padding:10px 12px;display:flex;gap:4px;justify-content:center;">
-                            <button class="icon-btn" title="Collect SNMP" onclick="app.collectSingleDevice(${d.id},'${d.hostname.replace(/'/g, "\\'")}')">📥</button>
-                            <button class="icon-btn" title="Test SNMP" onclick="app.testDeviceSNMP(${d.id},'${d.hostname.replace(/'/g, "\\'")}')">🔌</button>
-                            <button class="icon-btn" title="View Detail" onclick="event.stopPropagation();app.openDeviceDetail(${d.id});">📊</button>
+                        <td onclick="event.stopPropagation();" style="text-align:center;padding:8px 12px;">
+                            <button style="padding:5px 12px;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);color:#93c5fd;border-radius:6px;cursor:pointer;font-size:12px;font-weight:500;" title="View Detail" onclick="event.stopPropagation();app.openDeviceDetail(${d.id});">📊 Detail</button>
                         </td>
                     </tr>`;
                 }).join('');
@@ -3099,9 +3139,14 @@
                             <td>${d.location || '-'}</td>
                             <td>${d.role || '-'}</td>
                             <td><span class="badge badge-${d.is_active ? 'active' : 'inactive'}">${d.is_active ? 'Active' : 'Inactive'}</span></td>
-                            <td>
-                                <button class="icon-btn" onclick="app.editDevice(${d.id})">✏️</button>
-                                <button class="icon-btn" onclick="app.deleteDevice(${d.id})">🗑️</button>
+                            <td style="white-space:nowrap;">
+                                <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
+                                    <button title="Edit" onclick="app.editDevice(${d.id})" style="padding:4px 8px;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);color:#93c5fd;border-radius:5px;cursor:pointer;font-size:11px;">✏️ Edit</button>
+                                    <button title="Collect SNMP" id="collectBtn-${d.id}" onclick="app.collectSingleDevice(${d.id},'${d.hostname.replace(/'/g, "\\'")}',this)" style="padding:4px 8px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);color:#6ee7b7;border-radius:5px;cursor:pointer;font-size:11px;">📥 Collect</button>
+                                    <button title="Test SNMP" onclick="app.testDeviceSNMP(${d.id},'${d.hostname.replace(/'/g, "\\'")}',this)" style="padding:4px 8px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);color:#fcd34d;border-radius:5px;cursor:pointer;font-size:11px;">🔌 Test</button>
+                                    <button title="Verbose Log" onclick="app.openVerboseLog(${d.id},'${d.hostname.replace(/'/g, "\\'")}')" style="padding:4px 8px;background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.3);color:#d8b4fe;border-radius:5px;cursor:pointer;font-size:11px;">📋 Log</button>
+                                    <button title="Delete" onclick="app.deleteDevice(${d.id})" style="padding:4px 8px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;border-radius:5px;cursor:pointer;font-size:11px;">🗑️</button>
+                                </div>
                             </td>
                         </tr>
                     `).join('');
@@ -3724,6 +3769,12 @@
             }
 
             function updateScannerUI(running, message, percent) {
+                // Expose ke global untuk Job Monitor
+                window._scannerRunning = running;
+                window._scannerPct = Math.round(percent);
+                window._scannerStep = message;
+                // Update badge job monitor
+                if (window.updateCollectPanel) window.updateCollectPanel();
                 const scanBtn = document.querySelector('button[onclick*="runIPScan"]');
                 const bar = document.getElementById('scannerProgressBar');
                 if (scanBtn) {
@@ -4912,18 +4963,185 @@ function calc95th(arr) {
                 });
             }
             
-            async function collectSingleDevice(deviceId, hostname) {
+            // Collection panel state (global agar bisa diakses dari mana saja)
+            window._collectJobs = window._collectJobs || {};
+            const _collectJobs = window._collectJobs;
+
+            // Job Monitor
+            function openJobMonitor() {
+                document.getElementById('jobMonitorModal').style.display = 'block';
+                renderJobMonitor();
+            }
+
+            function closeJobMonitor() {
+                document.getElementById('jobMonitorModal').style.display = 'none';
+            }
+
+            window.renderJobMonitor = function renderJobMonitor() {
+                const el = document.getElementById('jobMonitorContent');
+                if (!el) return;
+
+                const jobs = [];
+
+                // SNMP Collection jobs
+                Object.values(_collectJobs).forEach(j => {
+                    jobs.push({
+                        icon: '📥',
+                        title: `Pengumpulan data SNMP — ${j.hostname}`,
+                        desc: j.status === 'done' ? 'Selesai — data interface berhasil dikumpulkan' :
+                              j.status === 'error' ? 'Gagal — tidak dapat terhubung ke perangkat' :
+                              'Sedang mengambil data interface dari perangkat...',
+                        step: j.step,
+                        pct: j.pct,
+                        status: j.status,
+                        color: j.status === 'done' ? '#10b981' : j.status === 'error' ? '#ef4444' : '#3b82f6'
+                    });
+                });
+
+                // IP Scanner job
+                if (window._scannerRunning) {
+                    jobs.push({
+                        icon: '🔍',
+                        title: 'Pemindaian IP Jaringan',
+                        desc: 'Sedang memindai seluruh subnet untuk mendeteksi perangkat aktif dan konflik IP...',
+                        step: window._scannerStep || 'Scanning...',
+                        pct: window._scannerPct || 0,
+                        status: 'running',
+                        color: '#3b82f6'
+                    });
+                }
+
+                if (jobs.length === 0) {
+                    el.innerHTML = `
+                        <div style="text-align:center; padding:40px; color:rgba(255,255,255,0.3);">
+                            <div style="font-size:40px; margin-bottom:12px;">✅</div>
+                            <div style="font-size:15px; font-weight:500; color:rgba(255,255,255,0.5);">Semua sistem berjalan normal</div>
+                            <div style="font-size:13px; color:rgba(255,255,255,0.3); margin-top:6px;">Tidak ada proses yang sedang berjalan saat ini</div>
+                        </div>`;
+                    const badge = document.getElementById('jobMonitorBadge');
+                    if (badge) badge.style.display = 'none';
+                    return;
+                }
+
+                // Update badge
+                const badge = document.getElementById('jobMonitorBadge');
+                if (badge) { badge.style.display = 'block'; badge.textContent = jobs.length; }
+
+                el.innerHTML = jobs.map(j => `
+                    <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:16px; margin-bottom:10px;">
+                        <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:10px;">
+                            <span style="font-size:22px;">${j.icon}</span>
+                            <div style="flex:1;">
+                                <div style="font-size:14px; font-weight:600; color:#e2e8f0; margin-bottom:3px;">${j.title}</div>
+                                <div style="font-size:12px; color:rgba(255,255,255,0.45);">${j.desc}</div>
+                            </div>
+                            <span style="padding:3px 10px; border-radius:99px; font-size:11px; font-weight:700;
+                                background:${j.status==='done'?'rgba(16,185,129,0.15)':j.status==='error'?'rgba(239,68,68,0.15)':'rgba(59,130,246,0.15)'};
+                                border:1px solid ${j.status==='done'?'rgba(16,185,129,0.3)':j.status==='error'?'rgba(239,68,68,0.3)':'rgba(59,130,246,0.3)'};
+                                color:${j.status==='done'?'#10b981':j.status==='error'?'#ef4444':'#93c5fd'};">
+                                ${j.status==='done'?'Selesai':j.status==='error'?'Gagal':'Berjalan...'}
+                            </span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="flex:1; background:rgba(255,255,255,0.08); border-radius:99px; height:6px; overflow:hidden;">
+                                <div style="height:100%; width:${j.pct}%; border-radius:99px; transition:width 0.6s ease;
+                                    background:${j.status==='done'?'linear-gradient(90deg,#10b981,#34d399)':j.status==='error'?'#ef4444':'linear-gradient(90deg,#3b82f6,#8b5cf6)'};"></div>
+                            </div>
+                            <span style="font-size:12px; font-weight:700; color:${j.color}; min-width:36px; text-align:right;">${j.pct}%</span>
+                        </div>
+                        <div style="font-size:11px; color:rgba(255,255,255,0.35); margin-top:6px;">${j.step}</div>
+                    </div>
+                `).join('');
+            }
+
+            window.updateCollectPanel = function updateCollectPanel() {
+                const panel = document.getElementById('collectProgressPanel');
+                const list = document.getElementById('collectPanelList');
+                const count = document.getElementById('collectPanelCount');
+                // Sync ke job monitor kalau terbuka
+                const modal = document.getElementById('jobMonitorModal');
+                if (modal && modal.style.display !== 'none') renderJobMonitor();
+                // Update badge
+                const badge = document.getElementById('jobMonitorBadge');
+                const jobCount = Object.keys(_collectJobs).length;
+                if (badge) { badge.style.display = jobCount > 0 ? 'block' : 'none'; badge.textContent = jobCount; }
+                if (!panel || !list) return;
+                const jobs = Object.values(_collectJobs);
+                if (jobs.length === 0) { panel.style.display = 'none'; return; }
+                panel.style.display = 'block';
+                if (count) count.textContent = jobs.length + ' device';
+                list.innerHTML = jobs.map(j => `
+                    <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px 14px;">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                            <span style="font-size:13px; font-weight:600; color:#e2e8f0;">${j.hostname}</span>
+                            <span style="font-size:11px; color:rgba(255,255,255,0.4);">${j.ip || ''}</span>
+                            <span style="margin-left:auto; font-size:12px; color:${j.status==='done'?'#10b981':j.status==='error'?'#ef4444':'#93c5fd'};">${j.step}</span>
+                            <span style="font-size:12px; font-weight:700; color:${j.status==='done'?'#10b981':j.status==='error'?'#ef4444':'#60a5fa'};">${j.pct}%</span>
+                        </div>
+                        <div style="background:rgba(255,255,255,0.08); border-radius:99px; height:6px; overflow:hidden;">
+                            <div style="height:100%; width:${j.pct}%; border-radius:99px; background:${j.status==='done'?'linear-gradient(90deg,#10b981,#34d399)':j.status==='error'?'#ef4444':'linear-gradient(90deg,#3b82f6,#8b5cf6)'}; transition:width 0.6s ease;"></div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            async function collectSingleDevice(deviceId, hostname, btnEl) {
                 showConfirm('Start Collection', `Jalankan SNMP collection untuk ${hostname}?`, async () => {
-                    try {
-                        const btn = event.target;
+                    const btn = btnEl || document.getElementById('collectBtn-' + deviceId);
+                    if (btn) {
                         btn.disabled = true;
-                        btn.textContent = '⏳ Collecting...';
-                        
-                        const res = await fetch(`${API_URL}/devices/${deviceId}/collect`, {
-                            method: 'POST'
-                        });
+                        btn.style.background = 'rgba(59,130,246,0.3)';
+                        btn.style.borderColor = 'rgba(59,130,246,0.5)';
+                        btn.style.color = '#93c5fd';
+                        btn.innerHTML = '⏳';
+                    }
+
+                    // Add to panel
+                    const steps = ['🔗 Connecting...', '📡 SNMP Query...', '💾 Saving data...', '⚙️ Processing...'];
+                    const pcts =  [15, 40, 75, 90];
+                    _collectJobs[deviceId] = { hostname, ip: '', step: steps[0], pct: 10, status: 'running' };
+                    updateCollectPanel();
+
+                    // Animate steps
+                    steps.forEach((step, i) => {
+                        setTimeout(() => {
+                            if (_collectJobs[deviceId]) {
+                                _collectJobs[deviceId].step = step;
+                                _collectJobs[deviceId].pct = pcts[i];
+                                updateCollectPanel();
+                            }
+                        }, i * 1800);
+                    });
+
+                    try {
+                        const res = await fetch(`${API_URL}/devices/${deviceId}/collect`, { method: 'POST' });
                         const data = await res.json();
-                        
+
+                        // Update panel final state
+                        if (_collectJobs[deviceId]) {
+                            _collectJobs[deviceId].pct = data.success ? 100 : 0;
+                            _collectJobs[deviceId].step = data.success ? '✅ Selesai' : '❌ Gagal';
+                            _collectJobs[deviceId].status = data.success ? 'done' : 'error';
+                            updateCollectPanel();
+                        }
+
+                        // Reset button
+                        if (btn) {
+                            btn.innerHTML = data.success ? '✅' : '❌';
+                            btn.style.background = data.success ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)';
+                            btn.style.borderColor = data.success ? 'rgba(16,185,129,0.5)' : 'rgba(239,68,68,0.5)';
+                            btn.style.color = data.success ? '#6ee7b7' : '#fca5a5';
+                            setTimeout(() => {
+                                if (btn) { btn.disabled = false; btn.innerHTML = '📥 Collect'; btn.style.background='rgba(16,185,129,0.15)'; btn.style.borderColor='rgba(16,185,129,0.3)'; btn.style.color='#6ee7b7'; }
+                            }, 2500);
+                        }
+
+                        // Remove from panel after 3s
+                        setTimeout(() => {
+                            delete _collectJobs[deviceId];
+                            updateCollectPanel();
+                        }, 3000);
+
                         if (data.success) {
                             showToast(`✅ ${data.message}`, 'success');
                             setTimeout(() => loadDeviceCards(), 3000);
@@ -4941,16 +5159,22 @@ function calc95th(arr) {
                 });
             }
             
-            async function testDeviceSNMP(deviceId, hostname) {
-                try {
-                    const btn = event.target;
+            async function testDeviceSNMP(deviceId, hostname, btnEl) {
+                const btn = btnEl || event.target;
+                const originalHTML = btn ? btn.innerHTML : '';
+                if (btn) {
                     btn.disabled = true;
-                    btn.textContent = '⏳ Testing...';
-                    
+                    btn.innerHTML = '🔌 Testing...';
+                    btn.style.background = 'rgba(245,158,11,0.3)';
+                    btn.style.borderColor = 'rgba(245,158,11,0.5)';
+                    btn.style.color = '#fcd34d';
+                }
+                try {
                     const res = await fetch(`${API_URL}/devices/${deviceId}/test-snmp`);
                     const data = await res.json();
                     
                     if (data.success && data.status === 'ok') {
+                        if (btn) { btn.innerHTML = '✅ SNMP OK'; btn.style.background='rgba(16,185,129,0.3)'; btn.style.borderColor='rgba(16,185,129,0.5)'; btn.style.color='#6ee7b7'; }
                         showToast(`✅ ${hostname}: SNMP OK`, 'success');
                     } else {
                         const msg = data.message || 'SNMP tidak dapat diakses';
@@ -5365,6 +5589,7 @@ function calc95th(arr) {
                 openAddConnectionModal, closeConnectionModal, saveConnection, deleteConnection,
                 openTopologyFullscreen, closeTopologyFullscreen, toggleTopologyLayout, filterTopologyCategory, fitTopology, runLLDPDiscovery,
                 loadContentTargets, changeContentTimeRange, openContentDetail, changeContentDetailRange, closeContentDetailModal, openAddContentModal, closeAddContentModal, addContentTarget, deleteContentTarget,
+                openJobMonitor, closeJobMonitor,
                 startApp
             };
         })();
