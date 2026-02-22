@@ -1794,9 +1794,9 @@
                     <p class="modal-subtitle" id="detailDeviceInfo" style="margin:4px 0 0 0;"></p>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
-                    <button id="detailRealtimeBtn" onclick="app.toggleDetailRealtime()"
+                    <button id="detailRealtimeBtn" onclick="app.openDeviceRealtime()"
                         style="padding:5px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid rgba(16,185,129,0.4); background:rgba(16,185,129,0.1); color:#6ee7b7; transition:all 0.2s;">
-                        ▶ Realtime
+                        📡 Realtime
                     </button>
                     <button class="modal-close" onclick="app.closeDetailModal()">×</button>
                 </div>
@@ -5186,84 +5186,17 @@ function calc95th(arr) {
                 if (_verboseRefreshTimer) { clearInterval(_verboseRefreshTimer); _verboseRefreshTimer = null; }
             }
 
-            // Device Detail Realtime
-            let _detailRealtimeTimer = null;
-            let _detailRealtimeOn = false;
-
-            function toggleDetailRealtime() {
-                _detailRealtimeOn = !_detailRealtimeOn;
-                const btn = document.getElementById('detailRealtimeBtn');
-                const badge = document.getElementById('detailLiveBadge');
-                if (_detailRealtimeOn) {
-                    btn.innerHTML = '⏹ Stop';
-                    btn.style.background = 'rgba(239,68,68,0.15)';
-                    btn.style.borderColor = 'rgba(239,68,68,0.4)';
-                    btn.style.color = '#fca5a5';
-                    if (badge) badge.style.display = 'inline-block';
-                    _detailRealtimeTimer = setInterval(() => refreshDetailStats(), 10000);
-                    refreshDetailStats();
-                } else {
-                    btn.innerHTML = '▶ Realtime';
-                    btn.style.background = 'rgba(16,185,129,0.1)';
-                    btn.style.borderColor = 'rgba(16,185,129,0.4)';
-                    btn.style.color = '#6ee7b7';
-                    if (badge) badge.style.display = 'none';
-                    if (_detailRealtimeTimer) { clearInterval(_detailRealtimeTimer); _detailRealtimeTimer = null; }
-                }
-            }
-
-            async function refreshDetailStats() {
+            // Device Detail Realtime — buka dedicated page
+            function openDeviceRealtime() {
                 if (!currentDevice) return;
-                try {
-                    const res = await fetch(`${API_URL}/latency/device/${currentDevice}?hours=1`, {credentials:'include'});
-                    if (res.status === 401) return;
-                    const latency = await res.json();
-                    const latData = latency.data || [];
-                    if (!latData.length) return;
-                    const rtts = latData.map(d => d.rtt_avg).filter(v => v !== null);
-                    // Hitung loss dengan memperhitungkan missing data points
-                    const expectedInterval = 60;
-                    const timeRangeSeconds = 3600; // 1 jam untuk realtime
-                    const expectedPoints = Math.floor(timeRangeSeconds / expectedInterval);
-                    const missingPoints = Math.max(0, expectedPoints - latData.length);
-                    const allLosses = latData.map(d => d.packet_loss !== null ? d.packet_loss : 100.0);
-                    for (let i = 0; i < missingPoints; i++) allLosses.push(100.0);
-                    const avgRtt = rtts.length > 0 ? (rtts.reduce((a,b)=>a+b,0)/rtts.length).toFixed(2) : 'N/A';
-                    const minRtt = rtts.length > 0 ? Math.min(...rtts).toFixed(2) : 'N/A';
-                    const maxRtt = rtts.length > 0 ? Math.max(...rtts).toFixed(2) : 'N/A';
-                    const avgLoss = allLosses.length > 0 ? (allLosses.reduce((a,b)=>a+b,0)/allLosses.length).toFixed(1) : 'N/A';
-                    const rttColor = parseFloat(avgRtt) > 100 ? '#ef4444' : parseFloat(avgRtt) > 50 ? '#f59e0b' : '#10b981';
-                    const lossColor = parseFloat(avgLoss) > 5 ? '#ef4444' : parseFloat(avgLoss) > 1 ? '#f59e0b' : '#10b981';
-
-                    // Update stat values saja tanpa rebuild seluruh HTML
-                    const stats = document.getElementById('detailStats');
-                    if (stats) {
-                        const vals = stats.querySelectorAll('[data-stat]');
-                        if (vals.length === 0) {
-                            // Rebuild stats
-                            stats.innerHTML = `
-                                <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:12px 16px;">
-                                    <div style="font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Avg Latency</div>
-                                    <div data-stat="avg" style="font-size:24px;font-weight:700;color:${rttColor};">${avgRtt}<span style="font-size:12px;color:rgba(255,255,255,0.4);"> ms</span></div>
-                                </div>
-                                <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:10px;padding:12px 16px;">
-                                    <div style="font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Min Latency</div>
-                                    <div data-stat="min" style="font-size:24px;font-weight:700;color:#60a5fa;">${minRtt}<span style="font-size:12px;color:rgba(255,255,255,0.4);"> ms</span></div>
-                                </div>
-                                <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:12px 16px;">
-                                    <div style="font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Max Latency</div>
-                                    <div data-stat="max" style="font-size:24px;font-weight:700;color:#f59e0b;">${maxRtt}<span style="font-size:12px;color:rgba(255,255,255,0.4);"> ms</span></div>
-                                </div>
-                                <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:12px 16px;">
-                                    <div style="font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Avg Loss</div>
-                                    <div data-stat="loss" style="font-size:24px;font-weight:700;color:${lossColor};">${avgLoss}<span style="font-size:12px;color:rgba(255,255,255,0.4);"> %</span></div>
-                                </div>`;
-                        }
-                    }
-                } catch(e) {}
+                const device = (typeof allDevices !== 'undefined' ? allDevices : []).find(d => d.id === currentDevice);
+                const name = device ? device.hostname : 'Device';
+                const ip = device ? device.ip_address : '';
+                const url = `/content-realtime.html?mode=device&device_id=${currentDevice}&name=${encodeURIComponent(name)}&target=${encodeURIComponent(ip)}`;
+                window.open(url, '_blank', 'width=900,height=600,resizable=yes');
             }
 
-            // Job Monitor
+                        // Job Monitor
             function openJobMonitor() {
                 document.getElementById('jobMonitorModal').style.display = 'block';
                 renderJobMonitor();
@@ -5903,7 +5836,7 @@ function calc95th(arr) {
                 loadContentTargets, changeContentTimeRange, openContentDetail, changeContentDetailRange, closeContentDetailModal, openAddContentModal, closeAddContentModal, addContentTarget, deleteContentTarget,
                 openJobMonitor, closeJobMonitor,
                 openVerboseLog, closeVerboseLog,
-                toggleDetailRealtime,
+                openDeviceRealtime,
                 startApp
             };
         })();
