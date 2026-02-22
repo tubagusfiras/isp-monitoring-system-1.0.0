@@ -3334,6 +3334,16 @@
                     if (!job) { lastTime.textContent = 'Never collected'; return; }
 
                     if (job.status === 'running') {
+                        // Expose ke Job Monitor
+                        window._collectionJob = {
+                            status: 'running',
+                            pct: progress.total > 0 ? Math.round(progress.percent) : 0,
+                            step: progress.current_device ? `Mengumpulkan data dari ${progress.current_device}` : 'Memulai pengumpulan data...',
+                            collected: progress.collected || 0,
+                            total: progress.total || 0,
+                            startedAt: job.started_at
+                        };
+                        if (window.updateCollectPanel) window.updateCollectPanel();
                         badge.textContent = 'COLLECTING';
                         badge.style.cssText = 'padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; background:rgba(59,130,246,0.2); color:#3b82f6; border:1px solid rgba(59,130,246,0.3);';
                         btn.disabled = true;
@@ -3351,6 +3361,9 @@
                         const started = new Date(job.started_at);
                         lastTime.textContent = `Started: ${started.toLocaleTimeString()}`;
                     } else {
+                        // Clear job monitor
+                        window._collectionJob = null;
+                        if (window.updateCollectPanel) window.updateCollectPanel();
                         progressWrapper.style.display = 'none';
                         btn.disabled = false;
                         btn.textContent = '🔄 Collect Now';
@@ -5006,6 +5019,22 @@ function calc95th(arr) {
                         desc: 'Sedang memindai seluruh subnet untuk mendeteksi perangkat aktif dan konflik IP...',
                         step: window._scannerStep || 'Scanning...',
                         pct: window._scannerPct || 0,
+                        status: 'running',
+                        color: '#3b82f6'
+                    });
+                }
+
+                // Global Interface Collection job
+                if (window._collectionJob && window._collectionJob.status === 'running') {
+                    const cj = window._collectionJob;
+                    jobs.push({
+                        icon: '📡',
+                        title: 'Pengumpulan Data Interface (Semua Perangkat)',
+                        desc: cj.total > 0
+                            ? `Sedang memproses ${cj.collected} dari ${cj.total} perangkat...`
+                            : 'Mempersiapkan pengumpulan data dari semua perangkat...',
+                        step: cj.step || 'Memulai...',
+                        pct: cj.pct || 0,
                         status: 'running',
                         color: '#3b82f6'
                     });
