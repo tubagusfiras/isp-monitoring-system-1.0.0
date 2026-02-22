@@ -2976,24 +2976,35 @@
                 // Bulk action bar
                 var bb = document.getElementById('anomalyBulkBar');
                 if(bb) bb.style.display = 'flex';
-                container.innerHTML = anomalies.map(anomaly => `
-                    <div class="anomaly-item anomaly-${anomaly.severity}" style="display:flex;align-items:flex-start;gap:10px;">
-                        <input type="checkbox" class="anomaly-check" data-id="${anomaly.id}" 
-                            style="margin-top:4px;width:16px;height:16px;cursor:pointer;accent-color:#3b82f6;" 
+                container.innerHTML = anomalies.map(anomaly => {
+                    const sevColor = anomaly.severity === 'critical' ? '#ef4444' : anomaly.severity === 'warning' ? '#f59e0b' : '#3b82f6';
+                    const sevBg = anomaly.severity === 'critical' ? 'rgba(239,68,68,0.15)' : anomaly.severity === 'warning' ? 'rgba(245,158,11,0.15)' : 'rgba(59,130,246,0.15)';
+                    const sevBorder = anomaly.severity === 'critical' ? 'rgba(239,68,68,0.25)' : anomaly.severity === 'warning' ? 'rgba(245,158,11,0.25)' : 'rgba(59,130,246,0.25)';
+                    const sevIcon = anomaly.severity === 'critical' ? '🔴' : anomaly.severity === 'warning' ? '🟡' : '🔵';
+                    const typeLabel = anomaly.anomaly_type ? anomaly.anomaly_type.replace(/_/g,' ').toUpperCase() : 'ANOMALY';
+                    const detectedAt = new Date(anomaly.detected_at);
+                    const timeAgo = Math.round((Date.now() - detectedAt) / 60000);
+                    const timeLabel = timeAgo < 60 ? `${timeAgo} menit lalu` : timeAgo < 1440 ? `${Math.round(timeAgo/60)} jam lalu` : `${Math.round(timeAgo/1440)} hari lalu`;
+                    return `
+                    <div style="background:${sevBg}; border:1px solid ${sevBorder}; border-radius:10px; padding:14px 16px; display:flex; align-items:flex-start; gap:12px; margin-bottom:8px; transition:all 0.2s;"
+                         onmouseover="this.style.background='${sevBg.replace('0.08','0.14')}'" onmouseout="this.style.background='${sevBg}'">
+                        <input type="checkbox" class="anomaly-check" data-id="${anomaly.id}"
+                            style="margin-top:3px;width:15px;height:15px;cursor:pointer;accent-color:#3b82f6;flex-shrink:0;"
                             onchange="app.updateBulkCount()">
-                        <div style="flex:1;">
-                            <div class="anomaly-header">
-                                <div class="anomaly-device">${anomaly.hostname} (${anomaly.ip_address})</div>
-                                <span class="anomaly-badge badge-${anomaly.severity}">${anomaly.severity}</span>
+                        <div style="font-size:20px; flex-shrink:0; margin-top:1px;">${sevIcon}</div>
+                        <div style="flex:1; min-width:0;">
+                            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:5px;">
+                                <span style="font-size:14px; font-weight:600; color:#e2e8f0;">${anomaly.hostname}</span>
+                                <span style="font-size:12px; color:rgba(255,255,255,0.35);">${anomaly.ip_address}</span>
+                                <span style="padding:2px 8px; border-radius:99px; font-size:10px; font-weight:700; background:${sevBg}; border:1px solid ${sevBorder}; color:${sevColor}; text-transform:uppercase;">${anomaly.severity}</span>
+                                <span style="padding:2px 8px; border-radius:99px; font-size:10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.5);">${typeLabel}</span>
                             </div>
-                            <div class="anomaly-desc">${anomaly.description}</div>
-                            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
-                                <div class="anomaly-time">${new Date(anomaly.detected_at).toLocaleString()}</div>
-                                <button onclick="window.deleteAnomaly(${anomaly.id})" style="padding:4px 10px;font-size:11px;background:rgba(239,68,68,0.2);color:#ef4444;border:1px solid rgba(239,68,68,0.4);border-radius:4px;cursor:pointer;" onmouseover="this.style.background='rgba(239,68,68,0.4)'" onmouseout="this.style.background='rgba(239,68,68,0.2)'">🗑️ Delete</button>
-                            </div>
+                            <div style="font-size:13px; color:rgba(255,255,255,0.65); margin-bottom:6px; line-height:1.5;">${anomaly.description}</div>
+                            <div style="font-size:11px; color:rgba(255,255,255,0.3);">🕐 ${timeLabel} — ${detectedAt.toLocaleString('id-ID')}</div>
                         </div>
-                    </div>
-                `).join('');
+                        <button onclick="window.deleteAnomaly(${anomaly.id})" style="padding:4px 10px;font-size:11px;background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);border-radius:6px;cursor:pointer;flex-shrink:0;" onmouseover="this.style.background='rgba(239,68,68,0.3)'" onmouseout="this.style.background='rgba(239,68,68,0.15)'">🗑️</button>
+                    </div>`;
+                }).join('');
             }
 
             function updateBulkCount() {
