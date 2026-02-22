@@ -4998,15 +4998,18 @@ function calc95th(arr) {
 
             // Verbose Log
             async function openVerboseLog(deviceId, hostname) {
+                _verboseDeviceId = deviceId;
+                _verboseHostname = hostname;
                 const modal = document.getElementById('verboseLogModal');
                 const content = document.getElementById('verboseLogContent');
                 const subtitle = document.getElementById('verboseLogSubtitle');
                 modal.style.display = 'block';
-                subtitle.textContent = 'Riwayat pengumpulan data SNMP — semua job';
+                subtitle.textContent = deviceId && hostname ? `Riwayat pengumpulan data SNMP — ${hostname}` : 'Riwayat pengumpulan data SNMP — semua job';
                 content.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.4);">⏳ Memuat riwayat...</div>';
 
                 try {
-                    const res = await fetch(`${API_URL}/collection/history?limit=20`, {credentials:'include'});
+                    const url = deviceId ? `${API_URL}/collection/history?limit=20&device_id=${deviceId}` : `${API_URL}/collection/history?limit=20`;
+                    const res = await fetch(url, {credentials:'include'});
                     const data = await res.json();
                     if (!data.success || !data.data.length) {
                         content.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3);">Belum ada riwayat collection</div>';
@@ -5069,13 +5072,25 @@ function calc95th(arr) {
                             ${errorsHtml}
                         </div>`;
                     }).join('');
+                    // Auto refresh kalau ada job running
+                    const hasRunning = data.data.some(j => j.status === 'running');
+                    if (hasRunning && !_verboseRefreshTimer) {
+                        _verboseRefreshTimer = setInterval(() => openVerboseLog(_verboseDeviceId, _verboseHostname), 3000);
+                    } else if (!hasRunning && _verboseRefreshTimer) {
+                        clearInterval(_verboseRefreshTimer); _verboseRefreshTimer = null;
+                    }
                 } catch(e) {
                     content.innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444;">Gagal memuat riwayat</div>';
                 }
             }
 
+            let _verboseRefreshTimer = null;
+            let _verboseDeviceId = null;
+            let _verboseHostname = null;
+
             function closeVerboseLog() {
                 document.getElementById('verboseLogModal').style.display = 'none';
+                if (_verboseRefreshTimer) { clearInterval(_verboseRefreshTimer); _verboseRefreshTimer = null; }
             }
 
             // Job Monitor

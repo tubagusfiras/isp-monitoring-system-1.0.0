@@ -945,24 +945,52 @@ def trigger_device_collection(device_id):
         if not device:
             return jsonify({'success': False, 'error': 'Device not found'}), 404
         
+        # Insert job record ke collection_jobs
+        conn2 = get_db()
+        cur2 = conn2.cursor(cursor_factory=RealDictCursor)
+        cur2.execute("INSERT INTO collection_jobs (started_at, status, total_devices, triggered_by, device_id) VALUES (NOW(), 'running', 1, 'manual', %s) RETURNING id", (device_id,))
+        job_id = cur2.fetchone()['id']
+        conn2.commit()
+        cur2.close()
+        conn2.close()
+
         # Run collection in background
-        script_path = '/opt/isp-monitoring/scripts/interface_monitor.py'
         python_path = sys.executable
-        
-        # Execute in background using parameterized query via -c
         safe_device_id = int(device_id)
-        subprocess.Popen(
-            [python_path, '-c',
-             f'import sys; sys.path.insert(0, "/opt/isp-monitoring/scripts"); '
-             f'from interface_monitor import collect_interface_stats; '
-             f'import psycopg2, psycopg2.extras; '
-             f'conn = psycopg2.connect(host="localhost", database="isp_monitoring", user="super", password="temp123"); '
-             f'cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor); '
-             f'cur.execute("SELECT * FROM devices WHERE id = %s", ({safe_device_id},)); '
-             f'dev = cur.fetchone(); cur.close(); conn.close(); '
-             f'collect_interface_stats(dict(dev)) if dev else None'],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
+        # Write helper script
+        helper = f"""/tmp/collect_device_{job_id}.py"""
+        with open(helper, 'w') as f:
+            f.write(f'''
+import sys
+sys.path.insert(0, "/opt/isp-monitoring/scripts")
+from interface_monitor_v2 import collect_interface_stats
+import psycopg2, psycopg2.extras
+
+conn = psycopg2.connect(host="localhost", database="isp_monitoring", user="super", password="temp123")
+cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+cur.execute("SELECT * FROM devices WHERE id = %s", ({safe_device_id},))
+dev = cur.fetchone()
+cur.close()
+
+ok = False
+ifaces = 0
+try:
+    result = collect_interface_stats(dict(dev)) if dev else None
+    ok = True
+    ifaces = result if isinstance(result, int) else 0
+except Exception as e:
+    print("Error:", e)
+
+cur2 = conn.cursor()
+cur2.execute(
+    "UPDATE collection_jobs SET status=%s, finished_at=NOW(), success_count=%s, failed_count=%s, total_interfaces=%s, duration_seconds=EXTRACT(EPOCH FROM (NOW()-started_at)) WHERE id=%s",
+    ("completed" if ok else "failed", 1 if ok else 0, 0 if ok else 1, ifaces, {job_id})
+)
+conn.commit()
+cur2.close()
+conn.close()
+''')
+        subprocess.Popen([python_path, helper], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         
         return jsonify({
             'success': True, 
@@ -2481,27 +2509,38 @@ def get_collection_history():
     """Get collection job history"""
     try:
         limit = request.args.get('limit', 20)
+        device_id = request.args.get('device_id', None)
         conn = get_db()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("""
-            SELECT id, started_at, finished_at, status, total_devices,
-                   success_count, failed_count, total_interfaces,
-                   duration_seconds, triggered_by
-            FROM collection_jobs
-            ORDER BY started_at DESC
-            LIMIT %s
-        """, (limit,))
+        if device_id:
+            cur.execute("""
+                SELECT id, started_at, finished_at, status, total_devices,
+                       success_count, failed_count, total_interfaces,
+                       duration_seconds, triggered_by, device_id
+                FROM collection_jobs
+                WHERE device_id = %s
+                ORDER BY started_at DESC
+                LIMIT %s
+            """, (device_id, limit))
+        else:
+            cur.execute("""
+                SELECT id, started_at, finished_at, status, total_devices,
+                       success_count, failed_count, total_interfaces,
+                       duration_seconds, triggered_by, device_id
+                FROM collection_jobs
+                ORDER BY started_at DESC
+                LIMIT %s
+            """, (limit,))
         jobs = cur.fetchall()
 
         # Get errors per job
         result = []
         for job in jobs:
             cur.execute("""
-                SELECT ce.device_id, d.hostname, d.ip_address, ce.error_message, ce.error_time
+                SELECT ce.hostname, ce.ip_address, ce.error_message, ce.collected_at as error_time
                 FROM collection_errors ce
-                LEFT JOIN devices d ON ce.device_id = d.id
                 WHERE ce.job_id = %s
-                ORDER BY ce.error_time ASC
+                ORDER BY ce.collected_at ASC
             """, (job['id'],))
             errors = cur.fetchall()
             job_dict = dict(job)
