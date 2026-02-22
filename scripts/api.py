@@ -2475,3 +2475,43 @@ def global_search():
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/collection/history', methods=['GET'])
+def get_collection_history():
+    """Get collection job history"""
+    try:
+        limit = request.args.get('limit', 20)
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""
+            SELECT id, started_at, finished_at, status, total_devices,
+                   success_count, failed_count, total_interfaces,
+                   duration_seconds, triggered_by
+            FROM collection_jobs
+            ORDER BY started_at DESC
+            LIMIT %s
+        """, (limit,))
+        jobs = cur.fetchall()
+
+        # Get errors per job
+        result = []
+        for job in jobs:
+            cur.execute("""
+                SELECT ce.device_id, d.hostname, d.ip_address, ce.error_message, ce.error_time
+                FROM collection_errors ce
+                LEFT JOIN devices d ON ce.device_id = d.id
+                WHERE ce.job_id = %s
+                ORDER BY ce.error_time ASC
+            """, (job['id'],))
+            errors = cur.fetchall()
+            job_dict = dict(job)
+            job_dict['errors'] = [dict(e) for e in errors]
+            job_dict['started_at'] = job['started_at'].isoformat() if job['started_at'] else None
+            job_dict['finished_at'] = job['finished_at'].isoformat() if job['finished_at'] else None
+            result.append(job_dict)
+
+        cur.close()
+        conn.close()
+        return jsonify({'success': True, 'data': result})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500

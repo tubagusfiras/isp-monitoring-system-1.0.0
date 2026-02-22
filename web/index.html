@@ -930,6 +930,22 @@
                     onmouseout="this.style.background='rgba(239,68,68,0.1)'">⏻ Logout</button>
             </div>
         </header>
+    <!-- Verbose Log Modal -->
+    <div id="verboseLogModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:9999; overflow:hidden; zoom:calc(1/0.85);">
+        <div style="max-width:900px; margin:40px auto; background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%); border-radius:14px; padding:28px; box-shadow:0 25px 50px rgba(0,0,0,0.5); max-height:calc(100vh - 80px); overflow-y:auto;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; padding-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.1);">
+                <div>
+                    <h2 style="margin:0; font-size:20px; color:#fff;">📋 Collection History</h2>
+                    <p style="margin:4px 0 0 0; font-size:13px; color:rgba(255,255,255,0.4);" id="verboseLogSubtitle">Riwayat pengumpulan data SNMP</p>
+                </div>
+                <button onclick="app.closeVerboseLog()" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#f87171;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;">✕ Tutup</button>
+            </div>
+            <div id="verboseLogContent">
+                <div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3);">Loading...</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Job Monitor Modal -->
     <div id="jobMonitorModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:9999; overflow:hidden; zoom:calc(1/0.85);">
         <div style="max-width:700px; margin:60px auto; background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%); border-radius:14px; padding:28px; box-shadow:0 25px 50px rgba(0,0,0,0.5); max-height:calc(100vh - 120px); overflow-y:auto;">
@@ -4980,6 +4996,88 @@ function calc95th(arr) {
             window._collectJobs = window._collectJobs || {};
             const _collectJobs = window._collectJobs;
 
+            // Verbose Log
+            async function openVerboseLog(deviceId, hostname) {
+                const modal = document.getElementById('verboseLogModal');
+                const content = document.getElementById('verboseLogContent');
+                const subtitle = document.getElementById('verboseLogSubtitle');
+                modal.style.display = 'block';
+                subtitle.textContent = 'Riwayat pengumpulan data SNMP — semua job';
+                content.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.4);">⏳ Memuat riwayat...</div>';
+
+                try {
+                    const res = await fetch(`${API_URL}/collection/history?limit=20`, {credentials:'include'});
+                    const data = await res.json();
+                    if (!data.success || !data.data.length) {
+                        content.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3);">Belum ada riwayat collection</div>';
+                        return;
+                    }
+                    content.innerHTML = data.data.map(job => {
+                        const started = job.started_at ? new Date(job.started_at).toLocaleString('id-ID') : '-';
+                        const finished = job.finished_at ? new Date(job.finished_at).toLocaleString('id-ID') : '-';
+                        const duration = job.duration_seconds ? `${Math.floor(job.duration_seconds/60)}m ${Math.floor(job.duration_seconds%60)}s` : '-';
+                        const statusColor = job.status === 'completed' ? '#10b981' : job.status === 'running' ? '#3b82f6' : job.status === 'cancelled' ? '#f59e0b' : '#ef4444';
+                        const statusBg = job.status === 'completed' ? 'rgba(16,185,129,0.1)' : job.status === 'running' ? 'rgba(59,130,246,0.1)' : job.status === 'cancelled' ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)';
+                        const statusLabel = job.status === 'completed' ? '✅ Selesai' : job.status === 'running' ? '⏳ Berjalan' : job.status === 'cancelled' ? '⚠️ Dibatalkan' : '❌ Gagal';
+                        const successRate = job.total_devices > 0 ? Math.round((job.success_count/job.total_devices)*100) : 0;
+                        const triggeredBy = job.triggered_by === 'manual' ? '👤 Manual' : '🤖 Otomatis';
+
+                        const errorsHtml = job.errors && job.errors.length > 0 ? `
+                            <div style="margin-top:10px; border-top:1px solid rgba(255,255,255,0.06); padding-top:10px;">
+                                <div style="font-size:12px; color:#f59e0b; font-weight:600; margin-bottom:6px;">⚠️ ${job.errors.length} Perangkat Gagal:</div>
+                                <div style="max-height:120px; overflow-y:auto; display:flex; flex-direction:column; gap:4px;">
+                                    ${job.errors.map(e => `
+                                        <div style="font-size:11px; padding:4px 8px; background:rgba(239,68,68,0.08); border-radius:4px; color:rgba(255,255,255,0.6);">
+                                            <strong style="color:#fca5a5;">${e.hostname||'Unknown'}</strong>
+                                            <span style="color:rgba(255,255,255,0.3);"> (${e.ip_address||'-'})</span>
+                                            — ${e.error_message||'Unknown error'}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>` : '';
+
+                        return `
+                        <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:16px; margin-bottom:10px;">
+                            <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+                                <span style="padding:3px 10px; border-radius:99px; font-size:12px; font-weight:700; background:${statusBg}; color:${statusColor};">${statusLabel}</span>
+                                <span style="font-size:12px; color:rgba(255,255,255,0.4);">${triggeredBy}</span>
+                                <span style="font-size:12px; color:rgba(255,255,255,0.4);">⏱ ${duration}</span>
+                                <span style="margin-left:auto; font-size:11px; color:rgba(255,255,255,0.3);">${started}</span>
+                            </div>
+                            <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:10px;">
+                                <div style="background:rgba(255,255,255,0.04); border-radius:6px; padding:8px; text-align:center;">
+                                    <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-bottom:2px;">Total Perangkat</div>
+                                    <div style="font-size:18px; font-weight:700; color:#e2e8f0;">${job.total_devices}</div>
+                                </div>
+                                <div style="background:rgba(16,185,129,0.08); border-radius:6px; padding:8px; text-align:center;">
+                                    <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-bottom:2px;">Berhasil</div>
+                                    <div style="font-size:18px; font-weight:700; color:#10b981;">${job.success_count}</div>
+                                </div>
+                                <div style="background:rgba(239,68,68,0.08); border-radius:6px; padding:8px; text-align:center;">
+                                    <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-bottom:2px;">Gagal</div>
+                                    <div style="font-size:18px; font-weight:700; color:#ef4444;">${job.failed_count}</div>
+                                </div>
+                                <div style="background:rgba(59,130,246,0.08); border-radius:6px; padding:8px; text-align:center;">
+                                    <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-bottom:2px;">Total Interface</div>
+                                    <div style="font-size:18px; font-weight:700; color:#60a5fa;">${job.total_interfaces.toLocaleString()}</div>
+                                </div>
+                            </div>
+                            <div style="background:rgba(255,255,255,0.06); border-radius:99px; height:5px; overflow:hidden;">
+                                <div style="height:100%; width:${successRate}%; background:linear-gradient(90deg,#10b981,#34d399); border-radius:99px;"></div>
+                            </div>
+                            <div style="font-size:11px; color:rgba(255,255,255,0.3); margin-top:4px;">Tingkat keberhasilan: ${successRate}%</div>
+                            ${errorsHtml}
+                        </div>`;
+                    }).join('');
+                } catch(e) {
+                    content.innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444;">Gagal memuat riwayat</div>';
+                }
+            }
+
+            function closeVerboseLog() {
+                document.getElementById('verboseLogModal').style.display = 'none';
+            }
+
             // Job Monitor
             function openJobMonitor() {
                 document.getElementById('jobMonitorModal').style.display = 'block';
@@ -5619,6 +5717,7 @@ function calc95th(arr) {
                 openTopologyFullscreen, closeTopologyFullscreen, toggleTopologyLayout, filterTopologyCategory, fitTopology, runLLDPDiscovery,
                 loadContentTargets, changeContentTimeRange, openContentDetail, changeContentDetailRange, closeContentDetailModal, openAddContentModal, closeAddContentModal, addContentTarget, deleteContentTarget,
                 openJobMonitor, closeJobMonitor,
+                openVerboseLog, closeVerboseLog,
                 startApp
             };
         })();
