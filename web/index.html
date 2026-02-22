@@ -1785,13 +1785,65 @@
     <div id="detailModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <div>
-                    <h2 id="detailDeviceName">Device Details</h2>
-                    <p class="modal-subtitle" id="detailDeviceInfo"></p>
+                <div style="flex:1;">
+                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <h2 id="detailDeviceName" style="margin:0;">Device Details</h2>
+                        <span id="detailStatusBadge" style="padding:3px 10px; border-radius:99px; font-size:11px; font-weight:700;"></span>
+                        <span id="detailLiveBadge" style="display:none; padding:3px 10px; border-radius:99px; font-size:11px; font-weight:700; background:rgba(239,68,68,0.2); border:1px solid rgba(239,68,68,0.4); color:#ef4444; animation:pulse 1.5s infinite;">🔴 LIVE</span>
+                    </div>
+                    <p class="modal-subtitle" id="detailDeviceInfo" style="margin:4px 0 0 0;"></p>
                 </div>
-                <button class="modal-close" onclick="app.closeDetailModal()">×</button>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <button id="detailRealtimeBtn" onclick="app.toggleDetailRealtime()"
+                        style="padding:5px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid rgba(16,185,129,0.4); background:rgba(16,185,129,0.1); color:#6ee7b7; transition:all 0.2s;">
+                        ▶ Realtime
+                    </button>
+                    <button class="modal-close" onclick="app.closeDetailModal()">×</button>
+                </div>
             </div>
-            <div class="detail-stats" id="detailStats"></div>
+            <div id="detailStats" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; margin-bottom:16px;"></div>
+
+            <!-- Realtime Section -->
+            <div id="detailRealtimeSection" style="display:none; margin-bottom:16px;">
+                <div style="background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.2); border-radius:12px; padding:16px;">
+                    <!-- Header -->
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:13px; font-weight:600; color:#e2e8f0;">🔴 Live Monitoring</span>
+                            <span style="font-size:11px; color:rgba(255,255,255,0.4);">Update setiap 10 detik</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <span style="font-size:12px; color:rgba(255,255,255,0.4);">Refresh dalam</span>
+                            <span id="detailRealtimeCountdown" style="font-size:16px; font-weight:700; color:#ef4444; min-width:24px; text-align:center;">10</span>
+                            <span style="font-size:12px; color:rgba(255,255,255,0.4);">detik</span>
+                        </div>
+                    </div>
+                    <!-- Countdown bar -->
+                    <div style="background:rgba(255,255,255,0.08); border-radius:99px; height:4px; margin-bottom:14px; overflow:hidden;">
+                        <div id="detailRealtimeBar" style="height:100%; width:100%; background:linear-gradient(90deg,#ef4444,#f97316); border-radius:99px; transition:width 1s linear;"></div>
+                    </div>
+                    <!-- Live stats grid -->
+                    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px;">
+                        <div style="background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.25); border-radius:8px; padding:10px; text-align:center;">
+                            <div style="font-size:10px; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Latency Saat Ini</div>
+                            <div id="detailLiveRtt" style="font-size:22px; font-weight:700; color:#10b981;">-- ms</div>
+                        </div>
+                        <div style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); border-radius:8px; padding:10px; text-align:center;">
+                            <div style="font-size:10px; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Packet Loss</div>
+                            <div id="detailLiveLoss" style="font-size:22px; font-weight:700; color:#ef4444;">-- %</div>
+                        </div>
+                        <div style="background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.25); border-radius:8px; padding:10px; text-align:center;">
+                            <div style="font-size:10px; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Status</div>
+                            <div id="detailLiveStatus" style="font-size:18px; font-weight:700; color:#60a5fa;">--</div>
+                        </div>
+                    </div>
+                    <!-- Mini chart -->
+                    <div style="height:120px; position:relative;">
+                        <canvas id="detailRealtimeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
             <div class="time-range-selector" style="display:flex;align-items:center;gap:6px;">
                 <button class="time-btn" onclick="app.changeTimeRange(1, event)">1h</button>
                 <button class="time-btn active" onclick="app.changeTimeRange(4, event)">4h</button>
@@ -2742,18 +2794,46 @@
                     const latData = latency.data || [];
                     if (latData.length > 0) {
                         const rtts = latData.map(d => d.rtt_avg).filter(v => v !== null);
-                        const losses = latData.map(d => d.packet_loss).filter(v => v !== null);
+                        // Hitung loss dengan memperhitungkan missing data points
+                        const expectedInterval = 60; // seconds per data point
+                        const timeRangeSeconds = currentTimeRange * 3600;
+                        const expectedPoints = Math.floor(timeRangeSeconds / expectedInterval);
+                        const missingPoints = Math.max(0, expectedPoints - latData.length);
+                        const allLosses = latData.map(d => d.packet_loss !== null ? d.packet_loss : 100.0);
+                        // Tambah 100% loss untuk setiap missing point
+                        for (let i = 0; i < missingPoints; i++) allLosses.push(100.0);
                         const avgRtt = rtts.length > 0 ? (rtts.reduce((a, b) => a + b, 0) / rtts.length).toFixed(2) : 'N/A';
                         const minRtt = rtts.length > 0 ? Math.min(...rtts).toFixed(2) : 'N/A';
                         const maxRtt = rtts.length > 0 ? Math.max(...rtts).toFixed(2) : 'N/A';
-                        const avgLoss = losses.length > 0 ? (losses.reduce((a, b) => a + b, 0) / losses.length).toFixed(1) : 'N/A';
+                        const avgLoss = allLosses.length > 0 ? (allLosses.reduce((a, b) => a + b, 0) / allLosses.length).toFixed(1) : 'N/A';
 
+                        const rttColor = parseFloat(avgRtt) > 100 ? '#ef4444' : parseFloat(avgRtt) > 50 ? '#f59e0b' : '#10b981';
+                        const lossColor = parseFloat(avgLoss) > 5 ? '#ef4444' : parseFloat(avgLoss) > 1 ? '#f59e0b' : '#10b981';
                         document.getElementById('detailStats').innerHTML = `
-                            <div class="detail-stat"><div class="detail-stat-label">Avg Latency</div><div class="detail-stat-value">${avgRtt} ms</div></div>
-                            <div class="detail-stat"><div class="detail-stat-label">Min Latency</div><div class="detail-stat-value">${minRtt} ms</div></div>
-                            <div class="detail-stat"><div class="detail-stat-label">Max Latency</div><div class="detail-stat-value">${maxRtt} ms</div></div>
-                            <div class="detail-stat"><div class="detail-stat-label">Avg Loss</div><div class="detail-stat-value">${avgLoss}%</div></div>
-                            <div class="detail-stat"><div class="detail-stat-label">Data Points</div><div class="detail-stat-value">${latData.length}</div></div>
+                            <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:12px 16px;">
+                                <div style="font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Avg Latency</div>
+                                <div style="font-size:24px;font-weight:700;color:${rttColor};">${avgRtt}<span style="font-size:12px;color:rgba(255,255,255,0.4);"> ms</span></div>
+                            </div>
+                            <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:10px;padding:12px 16px;">
+                                <div style="font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Min Latency</div>
+                                <div style="font-size:24px;font-weight:700;color:#60a5fa;">${minRtt}<span style="font-size:12px;color:rgba(255,255,255,0.4);"> ms</span></div>
+                            </div>
+                            <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:12px 16px;">
+                                <div style="font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Max Latency</div>
+                                <div style="font-size:24px;font-weight:700;color:#f59e0b;">${maxRtt}<span style="font-size:12px;color:rgba(255,255,255,0.4);"> ms</span></div>
+                            </div>
+                            <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:12px 16px;">
+                                <div style="font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Avg Loss</div>
+                                <div style="font-size:24px;font-weight:700;color:${lossColor};">${avgLoss}<span style="font-size:12px;color:rgba(255,255,255,0.4);"> %</span></div>
+                            </div>
+                            <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:12px 16px;">
+                                <div style="font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Data Points</div>
+                                <div style="font-size:24px;font-weight:700;color:#e2e8f0;">${latData.length}<span style="font-size:12px;color:rgba(255,255,255,0.4);"> pts</span></div>
+                            </div>
+                            <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:12px 16px;">
+                                <div style="font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Time Range</div>
+                                <div style="font-size:24px;font-weight:700;color:#e2e8f0;">${currentTimeRange}<span style="font-size:12px;color:rgba(255,255,255,0.4);"> hrs</span></div>
+                            </div>
                         `;
                     } else {
                         document.getElementById('detailStats').innerHTML = `
@@ -2957,6 +3037,8 @@
                 }
             }
             function closeDetailModal() {
+                // Stop realtime kalau aktif
+                if (_detailRealtimeOn) toggleDetailRealtime();
                 document.getElementById('detailModal').style.display = 'none';
                 if (detailChart) {
                     detailChart.destroy();
@@ -5104,6 +5186,83 @@ function calc95th(arr) {
                 if (_verboseRefreshTimer) { clearInterval(_verboseRefreshTimer); _verboseRefreshTimer = null; }
             }
 
+            // Device Detail Realtime
+            let _detailRealtimeTimer = null;
+            let _detailRealtimeOn = false;
+
+            function toggleDetailRealtime() {
+                _detailRealtimeOn = !_detailRealtimeOn;
+                const btn = document.getElementById('detailRealtimeBtn');
+                const badge = document.getElementById('detailLiveBadge');
+                if (_detailRealtimeOn) {
+                    btn.innerHTML = '⏹ Stop';
+                    btn.style.background = 'rgba(239,68,68,0.15)';
+                    btn.style.borderColor = 'rgba(239,68,68,0.4)';
+                    btn.style.color = '#fca5a5';
+                    if (badge) badge.style.display = 'inline-block';
+                    _detailRealtimeTimer = setInterval(() => refreshDetailStats(), 10000);
+                    refreshDetailStats();
+                } else {
+                    btn.innerHTML = '▶ Realtime';
+                    btn.style.background = 'rgba(16,185,129,0.1)';
+                    btn.style.borderColor = 'rgba(16,185,129,0.4)';
+                    btn.style.color = '#6ee7b7';
+                    if (badge) badge.style.display = 'none';
+                    if (_detailRealtimeTimer) { clearInterval(_detailRealtimeTimer); _detailRealtimeTimer = null; }
+                }
+            }
+
+            async function refreshDetailStats() {
+                if (!currentDevice) return;
+                try {
+                    const res = await fetch(`${API_URL}/latency/device/${currentDevice}?hours=1`, {credentials:'include'});
+                    if (res.status === 401) return;
+                    const latency = await res.json();
+                    const latData = latency.data || [];
+                    if (!latData.length) return;
+                    const rtts = latData.map(d => d.rtt_avg).filter(v => v !== null);
+                    // Hitung loss dengan memperhitungkan missing data points
+                    const expectedInterval = 60;
+                    const timeRangeSeconds = 3600; // 1 jam untuk realtime
+                    const expectedPoints = Math.floor(timeRangeSeconds / expectedInterval);
+                    const missingPoints = Math.max(0, expectedPoints - latData.length);
+                    const allLosses = latData.map(d => d.packet_loss !== null ? d.packet_loss : 100.0);
+                    for (let i = 0; i < missingPoints; i++) allLosses.push(100.0);
+                    const avgRtt = rtts.length > 0 ? (rtts.reduce((a,b)=>a+b,0)/rtts.length).toFixed(2) : 'N/A';
+                    const minRtt = rtts.length > 0 ? Math.min(...rtts).toFixed(2) : 'N/A';
+                    const maxRtt = rtts.length > 0 ? Math.max(...rtts).toFixed(2) : 'N/A';
+                    const avgLoss = allLosses.length > 0 ? (allLosses.reduce((a,b)=>a+b,0)/allLosses.length).toFixed(1) : 'N/A';
+                    const rttColor = parseFloat(avgRtt) > 100 ? '#ef4444' : parseFloat(avgRtt) > 50 ? '#f59e0b' : '#10b981';
+                    const lossColor = parseFloat(avgLoss) > 5 ? '#ef4444' : parseFloat(avgLoss) > 1 ? '#f59e0b' : '#10b981';
+
+                    // Update stat values saja tanpa rebuild seluruh HTML
+                    const stats = document.getElementById('detailStats');
+                    if (stats) {
+                        const vals = stats.querySelectorAll('[data-stat]');
+                        if (vals.length === 0) {
+                            // Rebuild stats
+                            stats.innerHTML = `
+                                <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:12px 16px;">
+                                    <div style="font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Avg Latency</div>
+                                    <div data-stat="avg" style="font-size:24px;font-weight:700;color:${rttColor};">${avgRtt}<span style="font-size:12px;color:rgba(255,255,255,0.4);"> ms</span></div>
+                                </div>
+                                <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:10px;padding:12px 16px;">
+                                    <div style="font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Min Latency</div>
+                                    <div data-stat="min" style="font-size:24px;font-weight:700;color:#60a5fa;">${minRtt}<span style="font-size:12px;color:rgba(255,255,255,0.4);"> ms</span></div>
+                                </div>
+                                <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:12px 16px;">
+                                    <div style="font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Max Latency</div>
+                                    <div data-stat="max" style="font-size:24px;font-weight:700;color:#f59e0b;">${maxRtt}<span style="font-size:12px;color:rgba(255,255,255,0.4);"> ms</span></div>
+                                </div>
+                                <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:12px 16px;">
+                                    <div style="font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Avg Loss</div>
+                                    <div data-stat="loss" style="font-size:24px;font-weight:700;color:${lossColor};">${avgLoss}<span style="font-size:12px;color:rgba(255,255,255,0.4);"> %</span></div>
+                                </div>`;
+                        }
+                    }
+                } catch(e) {}
+            }
+
             // Job Monitor
             function openJobMonitor() {
                 document.getElementById('jobMonitorModal').style.display = 'block';
@@ -5744,6 +5903,7 @@ function calc95th(arr) {
                 loadContentTargets, changeContentTimeRange, openContentDetail, changeContentDetailRange, closeContentDetailModal, openAddContentModal, closeAddContentModal, addContentTarget, deleteContentTarget,
                 openJobMonitor, closeJobMonitor,
                 openVerboseLog, closeVerboseLog,
+                toggleDetailRealtime,
                 startApp
             };
         })();
