@@ -3359,6 +3359,10 @@
                 if (tab === 'topology') loadTopology();
                 if (tab === 'anomalies') loadAnomalies();
                 if (tab === 'content') loadContentTargets();
+                if (tab === 'site-summary') {
+                    const frame = document.getElementById('siteSummaryFrame');
+                    if (frame && (frame.src === 'about:blank' || frame.src === '')) frame.src = '/site-summary.html';
+                };
                 if (tab === 'manage') loadManageDevices();
                 RefreshManager.start(tab);
             }
@@ -5385,18 +5389,6 @@ function calc95th(arr) {
                     const headerUser = document.getElementById('headerUsername');
                     if (headerUser && data.username) headerUser.textContent = data.username;
                     // Load external scripts setelah login
-                    if (!document.getElementById('notifBellScript')) {
-                        const s1 = document.createElement('script');
-                        s1.src = '/notif-bell.js';
-                        s1.id = 'notifBellScript';
-                        document.body.appendChild(s1);
-                    }
-                    if (!document.getElementById('perfMonitorScript')) {
-                        const s2 = document.createElement('script');
-                        s2.src = '/performance-monitor.js';
-                        s2.id = 'perfMonitorScript';
-                        document.body.appendChild(s2);
-                    }
                     app.startApp();
                 } else {
                     errorEl.textContent = data.error || 'Login failed';
@@ -5432,6 +5424,8 @@ function calc95th(arr) {
 
         checkAuth();
     </script>
+    <script src="/notif-bell.js"></script>
+    <script src="/performance-monitor.js"></script>
 
 
     
